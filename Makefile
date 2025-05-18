@@ -1,13 +1,25 @@
-# TODO: make sure the rules for server client and markdown filled!
-CC := gcc
-CFLAGS := -Wall -Wextra
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c11 -g -Ilibs -Ihelpers
+LDFLAGS = -pthread
 
-all: server client
+COMMON_OBJS = source/markdown.o helpers/ArrayList.o
 
-server: 
+all: client server
 
-client:
+server: source/server.c $(COMMON_OBJS)
+	$(CC) $(CFLAGS) -o server source/server.c $(COMMON_OBJS) $(LDFLAGS)
 
-markdown.o:
+client: source/client.c $(COMMON_OBJS)
+	$(CC) $(CFLAGS) -o client source/client.c $(COMMON_OBJS) $(LDFLAGS)
+
+# Object file rules
+source/markdown.o: source/markdown.c libs/markdown.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+helpers/ArrayList.o: helpers/ArrayList.c helpers/ArrayList.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
+	rm -f server client *.o */*.o FIFO_* test_* *.swp *.swo *.log .DS_Store Thumbs.db
+
+.PHONY: all clean
