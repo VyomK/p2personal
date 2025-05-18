@@ -1,0 +1,21 @@
+# Object files
+*.o
+
+# Binaries
+client
+server
+test_*
+
+# Named pipes
+FIFO_*
+
+# Editor/IDE temporary files
+*.swp
+*.swo
+*.log
+.vscode/ 
+
+#Personal reference folder
+personal_reference/ 
+
+
