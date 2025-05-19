@@ -36,6 +36,25 @@ void *Realloc(void *ptr, size_t size)
     return new_ptr;
 }
 
+void *ReCalloc(void *ptr, size_t old_size, size_t new_size)
+{
+    void *new_ptr = realloc(ptr, new_size);
+    if (!new_ptr)
+    {
+        fprintf(stderr, "ReCalloc failed (%zu → %zu bytes) [%s:%d]\n", old_size, new_size, __FILE__, __LINE__);
+        exit(EXIT_FAILURE);
+    }
+
+    if (new_size > old_size)
+    {
+        
+        memset((char *)new_ptr + old_size, 0, new_size - old_size);
+    }
+
+    return new_ptr;
+}
+
+
 char *Strndup(const char *s, size_t n)
 {
     char *copy = strndup(s, n);
