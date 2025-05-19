@@ -2,6 +2,8 @@
 #define MARKDOWN_H
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+
 #include "document.h"  
 /**
  * The given file contains all the functions you will be required to complete. You are free to and encouraged to create
@@ -11,6 +13,14 @@
  */
 
 // Return -1 if the cursor position is invalid
+
+
+#define SUCCESS = 0
+#define INVALID_CURSOR_POS = -1
+#define DELETED_POSITION = -2
+#define OUTDATED_VERSION = -3
+
+
 
 // Initialize and free a document
 document * markdown_init(void);

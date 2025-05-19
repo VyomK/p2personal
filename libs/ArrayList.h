@@ -4,7 +4,7 @@
 #include <stddef.h> // for size_t
 
 
-typedef struct {
+typedef struct dynamic_array {
     void **data;       // Pointer to array of elements
     size_t size;       // Number of elements currently in the array
     size_t capacity;   // Allocated capacity

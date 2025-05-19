@@ -19,6 +19,9 @@ source/markdown.o: source/markdown.c libs/markdown.h
 helpers/ArrayList.o: helpers/ArrayList.c helpers/ArrayList.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+helpers/ArrayList.o: helpers/ArrayList.c helpers/ArrayList.h
+	$(CC) $(CFLAGS) -c $< -o $@
+	
 clean:
 	rm -f server client *.o */*.o FIFO_* test_* *.swp *.swo *.log .DS_Store Thumbs.db
 
