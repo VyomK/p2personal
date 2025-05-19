@@ -55,12 +55,12 @@ void *ReCalloc(void *ptr, size_t old_size, size_t new_size)
 }
 
 
-char *Strndup(const char *s, size_t n)
+char *Strdup(const char *s)
 {
-    char *copy = strndup(s, n);
+    char *copy = strdup(s);
     if (!copy)
     {
-        fprintf(stderr, "Strndup failed [%s:%d]\n", __FILE__, __LINE__);
+        fprintf(stderr, "Strdup failed [%s:%d]\n", __FILE__, __LINE__);
         exit(EXIT_FAILURE);
     }
     return copy;
