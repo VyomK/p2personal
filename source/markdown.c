@@ -1,5 +1,5 @@
-#include "../libs/markdown.h"
-#include "../wrappers/memory.h"
+#include "markdown.h"
+#include "memory.h"
 
 #define SUCCESS 0
 #define REJECT -1

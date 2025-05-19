@@ -1,4 +1,4 @@
-#ifdef MEMORY_WRAPPERS
+#ifndef MEMORY_WRAPPERS
 #define MEMORY_WRAPPERS
 
 #include <stdlib.h>
