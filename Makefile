@@ -1,28 +1,53 @@
+# Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -g -Ilibs -Ihelpers
+CFLAGS = -Wall -Wextra -std=c11 -g -Ilibs
 LDFLAGS = -pthread
 
-COMMON_OBJS = source/markdown.o helpers/ArrayList.o
+# Object files
+OBJS_SERVER = \
+    source/server.o \
+    source/markdown.o \
+    source/document.o \
+    source/memory.o \
+    source/array_list.o
 
-all: client server
+OBJS_CLIENT = \
+    source/client.o \
+    source/markdown.o \
+    source/document.o \
+    source/memory.o \
+    source/array_list.o
 
-server: source/server.c $(COMMON_OBJS)
-	$(CC) $(CFLAGS) -o server source/server.c $(COMMON_OBJS) $(LDFLAGS)
+# Targets
+all: server client
 
-client: source/client.c $(COMMON_OBJS)
-	$(CC) $(CFLAGS) -o client source/client.c $(COMMON_OBJS) $(LDFLAGS)
+server: $(OBJS_SERVER)
+	$(CC) $(CFLAGS) -o server $(OBJS_SERVER) $(LDFLAGS)
+
+client: $(OBJS_CLIENT)
+	$(CC) $(CFLAGS) -o client $(OBJS_CLIENT) $(LDFLAGS)
 
 # Object file rules
 source/markdown.o: source/markdown.c libs/markdown.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-helpers/ArrayList.o: helpers/ArrayList.c helpers/ArrayList.h
+source/document.o: source/document.c libs/document.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-helpers/ArrayList.o: helpers/ArrayList.c helpers/ArrayList.h
+source/memory.o: source/memory.c libs/memory.h
 	$(CC) $(CFLAGS) -c $< -o $@
-	
+
+source/array_list.o: source/array_list.c libs/array_list.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+source/client.o: source/client.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+source/server.o: source/server.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Clean
 clean:
-	rm -f server client *.o */*.o FIFO_* test_* *.swp *.swo *.log .DS_Store Thumbs.db
+	rm -f server client source/*.o FIFO_* test_* *.swp *.swo *.log Thumbs.db
 
 .PHONY: all clean
