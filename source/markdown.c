@@ -2,13 +2,10 @@
 #include "memory.h"
 #include "document.h"
 
-#define SUCCESS  0
-#define INVALID_CURSOR_POS  -1
-#define DELETED_POSITION  -2
-#define OUTDATED_VERSION  -3 /*IGNORE: COMP9017*/
-
-
-
+#define SUCCESS 0
+#define INVALID_CURSOR_POS -1
+#define DELETED_POSITION -2
+#define OUTDATED_VERSION -3 /*IGNORE: COMP9017*/
 
 // === Init and Free ===
 document *markdown_init(void)
@@ -20,7 +17,7 @@ document *markdown_init(void)
     doc->num_characters = 0;
     doc->num_chunks = 0;
     doc->version = 0;
-    
+
     return doc;
 }
 
@@ -44,10 +41,6 @@ void markdown_free(document *doc)
 // === Edit Commands ===
 int markdown_insert(document *doc, uint64_t version, size_t pos, const char *content)
 {
-    (void)doc;
-    (void)version;
-    (void)pos;
-    (void)content;
 
     size_t content_size = strlen(content);
 
@@ -57,25 +50,46 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
         {
             /*HANDLE INCORRECT POSITION HERE
                 i. possibly leave incorrect position to be handled by server, so server
-                code checks for valid position and it's not handled here. 
-                For the client side, server will itself send the processed commands. 
+                code checks for valid position and it's not handled here.
+                For the client side, server will itself send the processed commands.
 
-                ii. there are return codes given, maybe they make position handling 
+                ii. there are return codes given, maybe they make position handling
                 easier in server code ? Decided to handle for now. Formatting markdown
                 functions do return int type
-                
-            */
-           return INVALID_CURSOR_POS; 
 
+            */
+            return INVALID_CURSOR_POS;
         }
         else
         {
 
             Chunk *new_chunk = (Chunk *)Calloc(1, sizeof(Chunk));
             size_t cap = calculate_cap(content_size + 1);
-            new_chunk = init_chunk(new_chunk, PLAIN, content_size, cap, Strdup(content), 0, NULL, NULL);
+
+            char *text = (char *)Calloc(cap, sizeof(char));
+            text = memcpy(text, content, content_size + 1);
+            init_chunk(new_chunk, PLAIN, content_size, cap, text, 0, NULL, NULL);
+
+            doc->head = new_chunk;
+            doc->tail = new_chunk;
+            doc->num_characters = content_size;
+            doc->num_chunks++;
+
+            return SUCCESS;
         }
     }
+
+    if (pos > doc->num_characters)
+    {
+        return INVALID_CURSOR_POS;
+    }
+
+    size_t local_pos = -1; 
+    Chunk* curr = locate_chunk(doc, pos, &local_pos); 
+
+    chunk_insert(curr, local_pos, content, content_size);
+    doc->num_characters += content_size;
+
 
     return SUCCESS;
 }

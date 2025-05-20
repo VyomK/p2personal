@@ -60,5 +60,8 @@ Chunk* locate_chunk(document* doc, size_t pos, size_t* local_pos);
 void init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous);
 void free_chunk(Chunk *chunk);
 size_t calculate_cap(size_t content_size);
+void chunk_ensure_cap(Chunk *curr, size_t extra_content);
+void chunk_insert(Chunk *curr, size_t local_pos, const char *content, size_t content_size);
+
 
 #endif 
