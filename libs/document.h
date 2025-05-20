@@ -54,7 +54,6 @@ typedef struct
 // Functions from here onwards.
 
 // === Document helpers ===
-document* init_doc(document* doc, Chunk* head, Chunk* tail, size_t num_chunks, size_t num_characters, uint64_t version);
 
 // === Chunk helpers ===
 Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous);

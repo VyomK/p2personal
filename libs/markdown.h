@@ -15,10 +15,7 @@
 // Return -1 if the cursor position is invalid
 
 
-#define SUCCESS = 0
-#define INVALID_CURSOR_POS = -1
-#define DELETED_POSITION = -2
-#define OUTDATED_VERSION = -3 /*IGNORE: COMP9017*/
+
  
 
 

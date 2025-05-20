@@ -1,15 +1,26 @@
 #include "markdown.h"
 #include "memory.h"
+#include "document.h"
 
-#define SUCCESS 0
-#define REJECT -1
+#define SUCCESS  0
+#define INVALID_CURSOR_POS  -1
+#define DELETED_POSITION  -2
+#define OUTDATED_VERSION  -3 /*IGNORE: COMP9017*/
+
+
+
 
 // === Init and Free ===
 document *markdown_init(void)
 {
 
     document *doc = (document *)Calloc(1, sizeof(document));
-    doc = init_doc(NULL, NULL, 0, 0, 0);
+    doc->head = NULL;
+    doc->tail = NULL;
+    doc->num_characters = 0;
+    doc->num_chunks = 0;
+    doc->version = 0;
+    
     return doc;
 }
 
@@ -17,16 +28,16 @@ void markdown_free(document *doc)
 {
     if (doc)
     {
-        Chunk* curr = doc->head; 
+        Chunk *curr = doc->head;
 
-        while(curr){
-            Chunk* temp = curr;
-            curr = curr->next;  
+        while (curr)
+        {
+            Chunk *temp = curr;
+            curr = curr->next;
             free_chunk(temp);
         }
 
         free(doc);
-        
     }
 }
 
@@ -42,19 +53,28 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
 
     if (doc->version == 0)
     {
+        if (pos != 0)
+        {
+            /*HANDLE INCORRECT POSITION HERE
+                i. possibly leave incorrect position to be handled by server, so server
+                code checks for valid position and it's not handled here. 
+                For the client side, server will itself send the processed commands. 
 
-        Chunk *init = (Chunk *)Calloc(1, sizeof(Chunk));
+                ii. there are return codes given, maybe they make position handling 
+                easier in server code ? Decided to handle for now. Formatting markdown
+                functions do return int type
+                
+            */
+           return INVALID_CURSOR_POS; 
 
-        doc->head = init;
-        doc->tail = init;
+        }
+        else
+        {
 
-        init->type = PLAIN;
-        init->index_OL = 0;
-        init->next = NULL;
-        init->previous = NULL;
-
-        init->len = (content_size + 1 > 128) ? (content_size + 1) : (128);
-        init->text = Strndup(content, init->len);
+            Chunk *new_chunk = (Chunk *)Calloc(1, sizeof(Chunk));
+            size_t cap = calculate_cap(content_size + 1);
+            new_chunk = init_chunk(new_chunk, PLAIN, content_size, cap, Strdup(content), 0, NULL, NULL);
+        }
     }
 
     return SUCCESS;
