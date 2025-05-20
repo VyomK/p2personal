@@ -54,9 +54,10 @@ typedef struct
 // Functions from here onwards.
 
 // === Document helpers ===
+Chunk* locate_chunk(document* doc, size_t pos, size_t* local_pos);
 
 // === Chunk helpers ===
-Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous);
+void init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous);
 void free_chunk(Chunk *chunk);
 size_t calculate_cap(size_t content_size);
 

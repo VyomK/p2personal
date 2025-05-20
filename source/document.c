@@ -3,9 +3,20 @@
 
 // === Document helpers ===
 
+Chunk* locate_chunk(document* doc, size_t pos, size_t* local_pos){
+    Chunk *curr = doc->head;
+    size_t curr_document_pos = 0;
+    while (curr && curr_document_pos + curr->len <= pos)
+    {
+        curr_document_pos += curr->len;
+        curr = curr->next;
+    } 
 
+    *local_pos = pos - curr_document_pos;
+    return curr;
+}
 // === Chunk helpers ===
-Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous)
+void init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous)
 {
 
     chunk->type = type;
@@ -15,7 +26,7 @@ Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *t
     chunk->index_OL = index_OL;
     chunk->next = next;
     chunk->previous = previous;
-    return chunk;
+    return;
 }
 
 void free_chunk(Chunk *chunk)
