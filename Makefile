@@ -18,6 +18,10 @@ OBJS_CLIENT = \
     source/memory.o \
     source/array_list.o
 
+
+TEST_SRC = tests/main.c tests/test_insert.c
+TEST_BIN = test_runner
+
 # Targets
 all: server client
 
@@ -46,8 +50,18 @@ source/client.o: source/client.c
 source/server.o: source/server.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+
+
+# Test 
+test: $(TEST_BIN)
+	./$(TEST_BIN)
+
+$(TEST_BIN): $(TEST_SRC) $(OBJS_CLIENT)  
+	$(CC) $(CFLAGS)  -o $@ $^
 # Clean
 clean:
 	rm -f server client source/*.o FIFO_* test_* *.swp *.swo *.log Thumbs.db
 
-.PHONY: all clean
+.PHONY: all clean test
+
+

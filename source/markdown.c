@@ -44,7 +44,7 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
 
     size_t content_size = strlen(content);
 
-    if (doc->version == 0)
+    if (version == 0)
     {
         if (pos != 0)
         {

@@ -1,17 +1,17 @@
-#include "ArrayList.h"
+#include "array_list.h"
 #include <stdlib.h>
 #include <stdio.h>
 
-ArrayList *create_array(size_t capacity)
+array_list *create_array(size_t capacity)
 {
-    ArrayList *arr = calloc(1, sizeof(ArrayList));
+    array_list *arr = calloc(1, sizeof(array_list));
     arr->data = calloc(capacity, sizeof(void *));
     arr->size = 0;
     arr->capacity = capacity;
     return arr;
 }
 
-void append_to(ArrayList *array, void *element)
+void append_to(array_list *array, void *element)
 {
     if (array->size >= array->capacity) {
         array->capacity *= 2;
@@ -21,7 +21,7 @@ void append_to(ArrayList *array, void *element)
     array->size++;
 }
 
-void *get_from(ArrayList *array, int pos)
+void *get_from(array_list *array, int pos)
 {
     if (pos < 0 || pos >= (int)array->size) {
         return NULL;
@@ -29,7 +29,7 @@ void *get_from(ArrayList *array, int pos)
     return array->data[pos];
 }
 
-void *remove_at(ArrayList *array, int pos)
+void *remove_at(array_list *array, int pos)
 {
     if (pos < 0 || pos >= (int)array->size) {
         return NULL;
@@ -43,7 +43,7 @@ void *remove_at(ArrayList *array, int pos)
     return element;
 }
 
-void *remove_from(ArrayList *array, void *element)
+void *remove_from(array_list *array, void *element)
 {
     for (int i = 0; i < (int)array->size; i++) {
         if (array->data[i] == element) {
@@ -53,7 +53,7 @@ void *remove_from(ArrayList *array, void *element)
     return NULL;
 }
 
-void free_array(ArrayList *array, int free_items)
+void free_array(array_list *array, int free_items)
 {
     if (free_items) {
         for (size_t i = 0; i < array->size; i++) {
