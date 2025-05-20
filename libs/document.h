@@ -1,6 +1,10 @@
 #ifndef DOCUMENT_H
 #define DOCUMENT_H
 
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+
 
 /**
  * This file is the header file for all the document functions. You will be tested on the functions inside markdown.h
@@ -25,7 +29,9 @@ typedef struct chunk
 {
     chunk_type type;
                           
-    size_t len;   // number of bytes in `text` (no '\n')
+    size_t len;   // number of bytes in `text` 
+    size_t cap;   // max. capacity of chunk, (multiples of 128)
+
     char *text;   // malloc-owned buffer, null-terminated
     int index_OL; // valid only if type == ORDERED_LIST_ITEM
     
@@ -39,11 +45,19 @@ typedef struct
     Chunk *tail;
 
     size_t num_chunks;     // total number of lines (chunks)
-    size_t num_characters; // total character count INCLUDING implied '\n's
+    size_t num_characters; // total character count 
 
     uint64_t version;      // incremented during TIME_INTERVAL broadcast
 
 } document;
 
 // Functions from here onwards.
+
+// === Document helpers ===
+document* init_doc(Chunk* head, Chunk* tail, size_t num_chunks, size_t num_characters, uint64_t version);
+
+// === Chunk helpers ===
+Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous);
+void free_chunk(Chunk *chunk);
+
 #endif
