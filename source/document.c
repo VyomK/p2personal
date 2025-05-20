@@ -13,6 +13,15 @@ Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
         curr = curr->next;
     }
 
+    if (!curr && pos == doc->num_characters && doc->tail)
+    {
+        *local_pos = doc->tail->len;
+        return doc->tail;
+    }
+
+    if (!curr)
+        return NULL;
+
     *local_pos = pos - curr_document_pos;
     return curr;
 }
@@ -63,11 +72,16 @@ void chunk_insert(Chunk *curr, size_t local_pos, const char *content, size_t con
 {
     chunk_ensure_cap(curr, content_size);
 
+
+
     memmove(curr->text + local_pos + content_size,
             curr->text + local_pos,
             curr->len - local_pos + 1); // includes '\0'
 
+            
     memcpy(curr->text + local_pos, content, content_size);
+   
 
     curr->len += content_size;
+    
 }
