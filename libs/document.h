@@ -29,7 +29,7 @@ typedef struct chunk
 {
     chunk_type type;
                           
-    size_t len;   // number of bytes in `text` 
+    size_t len;   // number of bytes in `text` (exclude null byte)
     size_t cap;   // max. capacity of chunk, (multiples of 128)
 
     char *text;   // malloc-owned buffer, null-terminated
@@ -54,10 +54,11 @@ typedef struct
 // Functions from here onwards.
 
 // === Document helpers ===
-document* init_doc(Chunk* head, Chunk* tail, size_t num_chunks, size_t num_characters, uint64_t version);
+document* init_doc(document* doc, Chunk* head, Chunk* tail, size_t num_chunks, size_t num_characters, uint64_t version);
 
 // === Chunk helpers ===
 Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous);
 void free_chunk(Chunk *chunk);
+size_t calculate_cap(size_t content_size);
 
-#endif
+#endif 

@@ -14,13 +14,7 @@ document *init_doc(document *doc, Chunk *head, Chunk *tail, size_t num_chunks, s
 }
 
 // === Chunk helpers ===
-Chunk *init_chunk(Chunk *chunk,
-                  chunk_type type,
-                  size_t len,
-                  size_t cap,
-                  char *text, int index_OL,
-                  Chunk *next,
-                  Chunk *previous)
+Chunk *init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous)
 {
 
     chunk->type = type;
@@ -42,3 +36,11 @@ void free_chunk(Chunk *chunk)
     }
 }
 
+size_t calculate_cap(size_t content_size)
+{
+    size_t cap = 128;
+    while (content_size > cap){
+        cap *= 2;
+    } 
+    return cap;
+} 
