@@ -9,18 +9,25 @@ document *markdown_init(void)
 {
 
     document *doc = (document *)Calloc(1, sizeof(document));
-
-    doc->head = NULL;
-    doc->tail = NULL;
-    doc->num_chunks = 0;
-    doc->num_characters = 0;
-    doc->version = 0;
+    doc = init_doc(NULL, NULL, 0, 0, 0);
     return doc;
 }
 
 void markdown_free(document *doc)
 {
-    (void)doc;
+    if (doc)
+    {
+        Chunk* curr = doc->head; 
+
+        while(curr){
+            Chunk* temp = curr;
+            curr = curr->next;  
+            free_chunk(temp);
+        }
+
+        free(doc);
+        
+    }
 }
 
 // === Edit Commands ===
@@ -48,7 +55,6 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
 
         init->len = (content_size + 1 > 128) ? (content_size + 1) : (128);
         init->text = Strndup(content, init->len);
-
     }
 
     return SUCCESS;
