@@ -54,7 +54,8 @@ source/server.o: source/server.c
 
 # Test 
 test: $(TEST_BIN)
-	./$(TEST_BIN)
+		valgrind --leak-check=full --track-origins=yes --error-exitcode=1 ./$(TEST_BIN)
+
 
 $(TEST_BIN): $(TEST_SRC) $(OBJS_CLIENT)  
 	$(CC) $(CFLAGS)  -o $@ $^

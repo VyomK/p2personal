@@ -41,11 +41,11 @@ void markdown_free(document *doc)
 // === Edit Commands ===
 int markdown_insert(document *doc, uint64_t version, size_t pos, const char *content)
 {
-
+    (void) version;
     size_t content_size = strlen(content);
 
-    if (version == 0)
-    {
+    // if (version == 0) IMPLEMENT LATER: CAUSING TESTING PROBLEMS RN
+    if(doc->head == NULL){
         if (pos != 0)
         {
             /*HANDLE INCORRECT POSITION HERE
@@ -199,8 +199,19 @@ void markdown_print(const document *doc, FILE *stream)
 
 char *markdown_flatten(const document *doc)
 {
-    (void)doc;
-    return NULL;
+    if (!doc || doc->num_characters == 0)
+        return Malloc(1);  
+
+    char *output = Malloc(doc->num_characters + 1);  // +1 for null terminator
+    size_t offset = 0;
+
+    for (Chunk *c = doc->head; c; c = c->next) {
+        memcpy(output + offset, c->text, c->len);
+        offset += c->len;
+    }
+
+    output[offset] = '\0';
+    return output;
 }
 
 // === Versioning ===
