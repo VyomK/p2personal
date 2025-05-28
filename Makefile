@@ -19,7 +19,7 @@ OBJS_CLIENT = \
     source/array_list.o
 
 
-TEST_SRC = tests/main.c tests/test_insert.c
+TEST_SRC = tests/main.c tests/test_insert.c tests/test_newline.c
 TEST_BIN = test_runner
 
 # Targets
