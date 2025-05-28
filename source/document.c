@@ -25,6 +25,50 @@ Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
     *local_pos = pos - curr_document_pos;
     return curr;
 }
+
+void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
+                            const char *prefix, size_t prefix_len, chunk_type new_type)
+{
+    // Copy tail content from curr into new chunk
+    size_t tail_len = curr->len - local_pos;
+    size_t new_len = prefix_len + tail_len;
+    size_t new_cap = calculate_cap(new_len + 1);
+
+    char *new_text = Calloc(new_cap, sizeof(char));
+    memcpy(new_text, prefix, prefix_len);
+    memcpy(new_text + prefix_len, curr->text + local_pos, tail_len);
+    new_text[new_len] = '\0';
+
+    Chunk *new_chunk = Calloc(1, sizeof(Chunk));
+    init_chunk(new_chunk, new_type, new_len, new_cap, new_text, 0, curr->next, curr);
+
+    if (curr->next)
+    {
+        curr->next->previous = new_chunk;
+    }
+    else
+    {
+        doc->tail = new_chunk;
+    }
+
+    curr->next = new_chunk;
+
+    // Truncate current chunk
+    curr->len = local_pos + 1;
+    curr->text[local_pos] = '\n';
+    curr->text[local_pos + 1] = '\0';
+
+    doc->num_chunks++;
+    doc->num_characters += prefix_len + 1; // +1 for inserted '\n'
+
+    if (new_chunk->previous && new_chunk->previous->type == ORDERED_LIST_ITEM &&
+        new_chunk->next && new_chunk->next->type == ORDERED_LIST_ITEM)
+    {
+        new_chunk->next->index_OL = 1;
+        renumber_list_from(new_chunk->next);
+    }
+}
+
 // === Chunk helpers ===
 void init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous)
 {
@@ -72,16 +116,35 @@ void chunk_insert(Chunk *curr, size_t local_pos, const char *content, size_t con
 {
     chunk_ensure_cap(curr, content_size);
 
-
-
     memmove(curr->text + local_pos + content_size,
             curr->text + local_pos,
             curr->len - local_pos + 1); // includes '\0'
 
-            
     memcpy(curr->text + local_pos, content, content_size);
-   
 
     curr->len += content_size;
-    
+}
+
+int prev_ol_index(Chunk *c)
+{
+    if (c && c->previous && c->previous->type == ORDERED_LIST_ITEM)
+        return c->previous->index_OL;
+    return 0;
+}
+
+void renumber_list_from(Chunk *start)
+{
+    int idx = start->index_OL;
+    for (Chunk *q = start->next; q && q->type == ORDERED_LIST_ITEM; q = q->next)
+    {
+        if (idx < 9)
+            idx++;
+        q->index_OL = idx;
+        if (q->len >= 3)
+        {
+            q->text[0] = '0' + idx;
+            q->text[1] = '.';
+            q->text[2] = ' ';
+        }
+    }
 }
