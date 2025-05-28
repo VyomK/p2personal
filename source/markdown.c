@@ -253,19 +253,25 @@ int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
 
 int markdown_bold(document *doc, uint64_t version, size_t start, size_t end)
 {
-    (void)doc;
-    (void)version;
-    (void)start;
-    (void)end;
+
+    if (start > end || end > doc->num_characters)
+        return INVALID_CURSOR_POS;
+
+    markdown_insert(doc, version, end, "**");
+    markdown_insert(doc, version, start, "**");
+
     return SUCCESS;
 }
 
 int markdown_italic(document *doc, uint64_t version, size_t start, size_t end)
 {
-    (void)doc;
-    (void)version;
-    (void)start;
-    (void)end;
+    if (start > end || end > doc->num_characters)
+        return INVALID_CURSOR_POS;
+
+    markdown_insert(doc, version, end, "*");
+    markdown_insert(doc, version, start, "*");
+
+    return SUCCESS;
     return SUCCESS;
 }
 
@@ -329,15 +335,15 @@ int markdown_ordered_list(document *doc, uint64_t version, size_t pos)
     if (pos > doc->num_characters)
         return INVALID_CURSOR_POS;
 
-    const size_t prefix_len = 3; 
+    const size_t prefix_len = 3;
 
     // Case 1: empty document
     if (doc->head == NULL)
     {
-        size_t len = prefix_len + 1; 
-        size_t cap = calculate_cap(len);
+        size_t len = prefix_len; // "1. "
+        size_t cap = calculate_cap(len + 1);
         char *text = Calloc(cap, sizeof(char));
-        memcpy(text, "1. \n", len);
+        memcpy(text, "1. ", len);
         text[len] = '\0';
 
         Chunk *c = Calloc(1, sizeof(Chunk));
@@ -349,12 +355,10 @@ int markdown_ordered_list(document *doc, uint64_t version, size_t pos)
         return SUCCESS;
     }
 
-    
     size_t local_pos;
     Chunk *curr = locate_chunk(doc, pos, &local_pos);
     bool at_line_start = (pos == 0 || local_pos == 0);
 
-    
     int my_index = prev_ol_index(curr) + 1;
     if (my_index > 9)
         my_index = 9;
@@ -465,10 +469,13 @@ int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
 
 int markdown_code(document *doc, uint64_t version, size_t start, size_t end)
 {
-    (void)doc;
-    (void)version;
-    (void)start;
-    (void)end;
+    if (start > end || end > doc->num_characters)
+        return INVALID_CURSOR_POS;
+
+    markdown_insert(doc, version, end, "`");
+    markdown_insert(doc, version, start, "`");
+
+    return SUCCESS;
     return SUCCESS;
 }
 
@@ -574,19 +581,37 @@ int markdown_horizontal_rule(document *doc, uint64_t version, size_t pos)
 
 int markdown_link(document *doc, uint64_t version, size_t start, size_t end, const char *url)
 {
-    (void)doc;
-    (void)version;
-    (void)start;
-    (void)end;
-    (void)url;
+    if (start > end || end > doc->num_characters || url == NULL)
+        return INVALID_CURSOR_POS;
+
+    size_t url_len = strlen(url);
+    size_t suffix_len = url_len + 2 + 1; // '(' + url + ')' + '\0'
+    char *suffix = (char *)Malloc(suffix_len);
+    snprintf(suffix, suffix_len, "(%s)", url);
+
+    markdown_insert(doc, version, end, "]");
+    markdown_insert(doc, version, end + 1, suffix);
+
+    markdown_insert(doc, version, start, "[");
+
+    free(suffix);
     return SUCCESS;
 }
 
 // === Utilities ===
 void markdown_print(const document *doc, FILE *stream)
 {
-    (void)doc;
-    (void)stream;
+    if (!doc || !stream)
+    {
+        return;
+    }
+
+    Chunk *curr = doc->head;
+    while (curr)
+    {
+        fwrite(curr->text, sizeof(char), curr->len, stream);
+        curr = curr->next;
+    }
 }
 
 char *markdown_flatten(const document *doc)
