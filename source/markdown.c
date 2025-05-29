@@ -165,6 +165,14 @@ int markdown_delete(document *doc,
         return SUCCESS;
     }
 
+    /* --- DEBUG START: spanning-delete parameters --- */
+    printf("[DEBUG] spanning delete: pos=%zu len=%zu local_pos=%zu start->len=%zu\n",
+           pos, len, local_pos, start->len);
+    if (start)
+        printf("[DEBUG] start->text=\"%s\"\n", start->text);
+    /* We'll print curr->text once we've set curr below */
+    /* --- DEBUG END ---  */
+
     /* 4) Spanning delete across chunks */
     size_t to_delete = len;
     size_t deleted = 0;
@@ -177,6 +185,11 @@ int markdown_delete(document *doc,
 
     /* 4b) free fully-deleted intermediate chunks */
     Chunk *curr = start->next;
+
+    /*DEBUG start pt2*/
+    printf("[DEBUG] merging from chunk text=\"%s\"\n", curr ? curr->text : "(null)");
+    /*DEBUG end pt2*/
+
     while (curr && to_delete >= curr->len)
     {
         if (curr->type == ORDERED_LIST_ITEM)
@@ -290,6 +303,76 @@ int markdown_delete(document *doc,
             after_merge->text[2] = ' ';
         }
         renumber_list_from(after_merge);
+    }
+
+    return SUCCESS;
+}
+
+// === Formatting Commands ===
+int markdown_newline(document *doc, uint64_t version, size_t pos)
+{
+    (void)doc;
+    (void)version;
+    (void)pos;
+
+    if (pos > doc->num_characters)
+    {
+        return INVALID_CURSOR_POS;
+    }
+
+    if (doc->head == NULL)
+    {
+
+        Chunk *new_chunk = (Chunk *)Calloc(1, sizeof(Chunk));
+        size_t cap = calculate_cap(1 + 1);
+        char *text = (char *)Calloc(cap, sizeof(char));
+        text[0] = '\n';
+        text[1] = '\0';
+        init_chunk(new_chunk, PLAIN, 1, cap, text, 0, NULL, NULL);
+
+        doc->head = new_chunk;
+        doc->tail = new_chunk;
+        doc->num_characters = 1;
+        doc->num_chunks++;
+
+        return SUCCESS;
+    }
+
+    size_t local_pos;
+    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+
+    size_t num_remaining = curr->len - local_pos;
+
+    Chunk *new = (Chunk *)Calloc(1, sizeof(Chunk));
+    size_t cap = calculate_cap(num_remaining + 1);
+    char *new_text = (char *)Calloc(cap, sizeof(char));
+
+    memmove(new_text, curr->text + local_pos, num_remaining);
+    new_text[num_remaining] = '\0';
+    init_chunk(new, PLAIN, num_remaining, cap, new_text, 0, curr->next, curr);
+
+    if (curr->next)
+    {
+        curr->next->previous = new;
+    }
+
+    if (curr == doc->tail)
+    {
+        doc->tail = new;
+    }
+
+    doc->num_characters++;
+    doc->num_chunks++;
+
+    curr->text[local_pos] = '\n';
+    curr->text[local_pos + 1] = '\0';
+    curr->next = new;
+    curr->len = local_pos + 1;
+
+    if (new->next && new->next->type == ORDERED_LIST_ITEM)
+    {
+        new->next->index_OL = 1;
+        renumber_list_from(new->next);
     }
 
     return SUCCESS;
@@ -475,6 +558,11 @@ int markdown_ordered_list(document *doc, uint64_t version, size_t pos)
 
     size_t local_pos;
     Chunk *curr = locate_chunk(doc, pos, &local_pos);
+
+    fprintf(stderr,
+            "[OL] formatting chunk at pos=%zu: before text=\"%s\", type=%d, index=%d\n",
+            pos, curr->text, curr->type, curr->index_OL);
+
     bool at_line_start = (pos == 0 || local_pos == 0);
 
     int my_index = prev_ol_index(curr) + 1;
@@ -494,6 +582,10 @@ int markdown_ordered_list(document *doc, uint64_t version, size_t pos)
         curr->type = ORDERED_LIST_ITEM;
         curr->index_OL = my_index;
         doc->num_characters += prefix_len;
+
+        fprintf(stderr,
+                "[OL] after  formatting chunk: text=\"%s\", type=%d, index=%d\n",
+                curr->text, curr->type, curr->index_OL);
 
         renumber_list_from(curr);
         return SUCCESS;
@@ -528,6 +620,10 @@ int markdown_ordered_list(document *doc, uint64_t version, size_t pos)
 
     doc->num_chunks++;
     doc->num_characters += prefix_len + 1;
+
+    fprintf(stderr,
+            "[OL] after  formatting chunk: text=\"%s\", type=%d, index=%d\n",
+            curr->text, curr->type, curr->index_OL);
 
     renumber_list_from(new);
     return SUCCESS;
