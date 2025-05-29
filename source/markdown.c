@@ -95,83 +95,201 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
     return SUCCESS;
 }
 
-int markdown_delete(document *doc, uint64_t version, size_t pos, size_t len)
+int markdown_delete(document *doc,
+                    uint64_t version,
+                    size_t pos,
+                    size_t len)
 {
-    (void)doc;
     (void)version;
-    (void)pos;
-    (void)len;
-    return SUCCESS;
-}
 
-// === Formatting Commands ===
-int markdown_newline(document *doc, uint64_t version, size_t pos)
-{
-    (void)doc;
-    (void)version;
-    (void)pos;
-    /*
-    TODO: Ordered List shifting logic
-    */
-
+    if (doc == NULL)
+    {
+        return INVALID_CURSOR_POS;
+    }
+    if (len == 0)
+    {
+        return SUCCESS;
+    }
     if (pos > doc->num_characters)
     {
         return INVALID_CURSOR_POS;
     }
 
-    if (doc->head == NULL)
+    /* 1) Locate start chunk + local offset */
+    size_t local_pos;
+    Chunk *start = locate_chunk(doc, pos, &local_pos);
+    if (start == NULL)
     {
+        return INVALID_CURSOR_POS;
+    }
 
-        Chunk *new_chunk = (Chunk *)Calloc(1, sizeof(Chunk));
-        size_t cap = calculate_cap(1 + 1);
-        char *text = (char *)Calloc(cap, sizeof(char));
-        text[0] = '\n';
-        text[1] = '\0';
-        init_chunk(new_chunk, PLAIN, 1, cap, text, 0, NULL, NULL);
+    bool ol_removed = false;
 
-        doc->head = new_chunk;
-        doc->tail = new_chunk;
-        doc->num_characters = 1;
-        doc->num_chunks++;
+    /* 2) Prefix‐removal in an OL item: downgrade and flag */
+    if (start->type == ORDERED_LIST_ITEM &&
+        local_pos < 3 &&
+        local_pos + len >= 3)
+    {
+        start->type = PLAIN;
+        start->index_OL = 0;
+        ol_removed = true;
+    }
+
+    /* 3) Fast‐path: delete entirely within this one chunk */
+    if (local_pos + len < start->len)
+    {
+        memmove(start->text + local_pos,
+                start->text + local_pos + len,
+                start->len - (local_pos + len) + 1);
+        start->len -= len;
+        doc->num_characters -= len;
+
+        /* localized renumber if needed */
+        Chunk *after_merge = start->next;
+        if (ol_removed &&
+            after_merge &&
+            after_merge->type == ORDERED_LIST_ITEM)
+        {
+            int base = prev_ol_index(after_merge);
+            int new_idx = base + 1;
+            after_merge->index_OL = new_idx;
+            if (after_merge->len >= 3)
+            {
+                after_merge->text[0] = '0' + new_idx;
+                after_merge->text[1] = '.';
+                after_merge->text[2] = ' ';
+            }
+            renumber_list_from(after_merge);
+        }
 
         return SUCCESS;
     }
 
-    size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+    /* 4) Spanning delete across chunks */
+    size_t to_delete = len;
+    size_t deleted = 0;
+    size_t prefix_len = local_pos;
 
-    size_t num_remaining = curr->len - local_pos;
+    /* 4a) remove through start’s '\n' */
+    size_t remove_start = start->len - local_pos;
+    to_delete -= remove_start;
+    deleted += remove_start;
 
-    Chunk *new = (Chunk *)Calloc(1, sizeof(Chunk));
-    size_t cap = calculate_cap(num_remaining + 1);
-    char *new_text = (char *)Calloc(cap, sizeof(char));
-
-    memmove(new_text, curr->text + local_pos, num_remaining);
-    new_text[num_remaining] = '\0';
-    init_chunk(new, PLAIN, num_remaining, cap, new_text, 0, curr->next, curr);
-
-    if (curr->next)
+    /* 4b) free fully-deleted intermediate chunks */
+    Chunk *curr = start->next;
+    while (curr && to_delete >= curr->len)
     {
-        curr->next->previous = new;
+        if (curr->type == ORDERED_LIST_ITEM)
+        {
+            ol_removed = true;
+        }
+        to_delete -= curr->len;
+        deleted += curr->len;
+
+        Chunk *tmp = curr;
+        curr = curr->next;
+
+        tmp->previous->next = curr;
+        if (curr)
+            curr->previous = tmp->previous;
+        else
+            doc->tail = tmp->previous;
+
+        free_chunk(tmp);
+        doc->num_chunks--;
     }
 
-    if (curr == doc->tail)
+    /* 4c) compute suffix in curr (if any) */
+    size_t suffix_len = 0;
+    if (curr)
     {
-        doc->tail = new;
+        suffix_len = curr->len - to_delete;
+        deleted += to_delete;
     }
 
-    doc->num_characters++;
-    doc->num_chunks++;
+    /* 5) update document character count */
+    doc->num_characters -= deleted;
 
-    curr->text[local_pos] = '\n';
-    curr->text[local_pos + 1] = '\0';
-    curr->next = new;
-    curr->len = local_pos + 1;
-
-    if (new->next && new->next->type == ORDERED_LIST_ITEM)
+    /* 6) Merge prefix + suffix into start, or remove start entirely */
+    Chunk *after_merge = NULL;
+    if (prefix_len + suffix_len > 0)
     {
-        new->next->index_OL = 1;
-        renumber_list_from(new->next);
+        /* it survives: rebuild text */
+        chunk_ensure_cap(start, prefix_len + suffix_len);
+        if (suffix_len > 0)
+        {
+            memcpy(start->text + prefix_len,
+                   curr->text + to_delete,
+                   suffix_len + 1);
+        }
+        else
+        {
+            start->text[prefix_len] = '\0';
+        }
+        start->len = prefix_len + suffix_len;
+
+        /* unlink & free curr if present */
+        if (curr)
+        {
+            if (curr->type == ORDERED_LIST_ITEM)
+            {
+                ol_removed = true;
+            }
+            after_merge = curr->next;
+            start->next = after_merge;
+            if (after_merge)
+                after_merge->previous = start;
+            else
+                doc->tail = start;
+
+            free_chunk(curr);
+            doc->num_chunks--;
+        }
+        else
+        {
+            after_merge = start->next;
+        }
+    }
+    else
+    {
+        /* start‐chunk wholly deleted */
+        if (start->type == ORDERED_LIST_ITEM)
+        {
+            ol_removed = true;
+        }
+        after_merge = start->next;
+        if (start->previous)
+        {
+            start->previous->next = after_merge;
+        }
+        else
+        {
+            doc->head = after_merge;
+        }
+        if (after_merge)
+            after_merge->previous = start->previous;
+        else
+            doc->tail = start->previous;
+
+        free_chunk(start);
+        doc->num_chunks--;
+    }
+
+    /* 7) Localized OL renumber if an item was removed/downgraded */
+    if (ol_removed &&
+        after_merge &&
+        after_merge->type == ORDERED_LIST_ITEM)
+    {
+        int base = prev_ol_index(after_merge);
+        int new_idx = base + 1;
+        after_merge->index_OL = new_idx;
+        if (after_merge->len >= 3)
+        {
+            after_merge->text[0] = '0' + new_idx;
+            after_merge->text[1] = '.';
+            after_merge->text[2] = ' ';
+        }
+        renumber_list_from(after_merge);
     }
 
     return SUCCESS;
