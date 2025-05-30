@@ -158,8 +158,8 @@ int prev_ol_index(Chunk *c)
 
 void renumber_list_from(Chunk *start)
 {
-    int idx = start->index_OL;
-    for (Chunk *q = start->next; q && q->type == ORDERED_LIST_ITEM; q = q->next)
+    int idx = prev_ol_index(start);
+    for (Chunk *q = start; q && q->type == ORDERED_LIST_ITEM; q = q->next)
     {
         if (idx < 9)
             idx++;

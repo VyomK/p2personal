@@ -377,7 +377,7 @@ int markdown_newline(document *doc, uint64_t version, size_t pos)
     return SUCCESS;
 }
 
-int markdown_heading(document *doc, uint64_t version, size_t pos, int level)
+int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
 {
     (void)version;
 
@@ -435,8 +435,10 @@ int markdown_heading(document *doc, uint64_t version, size_t pos, int level)
     memcpy(curr->text, prefix, prefix_len);
     curr->len += prefix_len;
     doc->num_characters += prefix_len;
-
     curr->type = type;
+    curr->index_OL = 0;
+
+
     return SUCCESS;
 }
 
@@ -471,7 +473,7 @@ int markdown_blockquote(document *doc, uint64_t version, size_t pos)
     // 1) prefix
     const char *prefix = "> ";
     chunk_type type = BLOCKQUOTE;
-    size_t prefix_len = 3;
+    size_t prefix_len = 2;
 
     // 2) Empty document case
     if (doc->head == NULL)
@@ -503,6 +505,8 @@ int markdown_blockquote(document *doc, uint64_t version, size_t pos)
     doc->num_characters += prefix_len;
 
     curr->type = type;
+    curr->index_OL = 0;
+
     return SUCCESS;
 }
 
@@ -587,7 +591,7 @@ int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
     // 1) prefix
     const char *prefix = "- ";
     chunk_type type = UNORDERED_LIST_ITEM;
-    size_t prefix_len = 3;
+    size_t prefix_len = 2;
 
     // 2) Empty document case
     if (doc->head == NULL)
@@ -619,6 +623,7 @@ int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
     doc->num_characters += prefix_len;
 
     curr->type = type;
+    curr->index_OL = 0;
     return SUCCESS;
 }
 

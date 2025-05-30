@@ -19,7 +19,9 @@ OBJS_CLIENT = \
     source/array_list.o
 
 
-TEST_SRC = tests/main.c tests/test_insert.c tests/test_newline.c tests/test_block_format.c tests/test_OL.c tests/test_inline.c tests/test_delete.c
+
+# tests/test_insert.c tests/test_newline.c tests/test_block_format.c tests/test_OL.c tests/test_inline.c tests/test_delete.c
+TEST_SRC = tests/main.c tests/tests_refactored.c
 TEST_BIN = test_runner
 
 # Targets
