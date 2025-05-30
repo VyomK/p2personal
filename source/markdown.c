@@ -86,7 +86,7 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
         return INVALID_CURSOR_POS;
     }
 
-    size_t local_pos = -1;
+    size_t local_pos;
     Chunk *curr = locate_chunk(doc, pos, &local_pos);
 
     chunk_insert(curr, local_pos, content, content_size);
@@ -311,9 +311,8 @@ int markdown_delete(document *doc,
 // === Formatting Commands ===
 int markdown_newline(document *doc, uint64_t version, size_t pos)
 {
-    (void)doc;
+
     (void)version;
-    (void)pos;
 
     if (pos > doc->num_characters)
     {
@@ -378,23 +377,18 @@ int markdown_newline(document *doc, uint64_t version, size_t pos)
     return SUCCESS;
 }
 
-int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
+int markdown_heading(document *doc, uint64_t version, size_t pos, int level)
 {
     (void)version;
 
-    if (level < 1 || level > 3)
+    if (level < 1 || level > 3 || pos > doc->num_characters)
     {
         return INVALID_CURSOR_POS;
     }
 
-    if (pos > doc->num_characters)
-    {
-        return INVALID_CURSOR_POS;
-    }
-
+    // 1) Determine prefix and type
     const char *prefix = NULL;
     chunk_type type = PLAIN;
-
     if (level == 1)
     {
         prefix = "# ";
@@ -413,7 +407,7 @@ int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
 
     size_t prefix_len = strlen(prefix);
 
-    // === Case 1: Empty document ===
+    // 2) Empty document case
     if (doc->head == NULL)
     {
         size_t cap = calculate_cap(prefix_len + 1);
@@ -428,27 +422,21 @@ int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
         doc->tail = new_chunk;
         doc->num_chunks = 1;
         doc->num_characters = prefix_len;
-
         return SUCCESS;
     }
 
-    // === Case 2: Locate target chunk ===
+    // 3) Normalize to a one-line chunk at line start
     size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+    Chunk *curr = ensure_line_start(doc, version, &pos, &local_pos);
 
-    bool at_line_start = (pos == 0 || local_pos == 0);
+    // 4) Insert prefix and update type
+    chunk_ensure_cap(curr, prefix_len);
+    memmove(curr->text + prefix_len, curr->text, curr->len + 1);
+    memcpy(curr->text, prefix, prefix_len);
+    curr->len += prefix_len;
+    doc->num_characters += prefix_len;
 
-    if (at_line_start)
-    {
-        chunk_insert(curr, local_pos, prefix, prefix_len);
-        doc->num_characters += prefix_len;
-        curr->type = type;
-        return SUCCESS;
-    }
-
-    // === Case 3: Not at line start — split and format chunk ===
-    split_and_format_chunk(doc, curr, local_pos, prefix, prefix_len, type);
-
+    curr->type = type;
     return SUCCESS;
 }
 
@@ -480,16 +468,12 @@ int markdown_blockquote(document *doc, uint64_t version, size_t pos)
 {
     (void)version;
 
-    if (pos > doc->num_characters)
-    {
-        return INVALID_CURSOR_POS;
-    }
-
+    // 1) prefix
     const char *prefix = "> ";
-    size_t prefix_len = 2;
     chunk_type type = BLOCKQUOTE;
+    size_t prefix_len = 3;
 
-    // === Case 1: Empty document ===
+    // 2) Empty document case
     if (doc->head == NULL)
     {
         size_t cap = calculate_cap(prefix_len + 1);
@@ -504,128 +488,95 @@ int markdown_blockquote(document *doc, uint64_t version, size_t pos)
         doc->tail = new_chunk;
         doc->num_chunks = 1;
         doc->num_characters = prefix_len;
-
         return SUCCESS;
     }
 
-    // === Case 2: Locate target chunk ===
+    // 3) Normalize to a one-line chunk at line start
     size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+    Chunk *curr = ensure_line_start(doc, version, &pos, &local_pos);
 
-    // === Check if at line start ===
-    bool at_line_start = (pos == 0 || local_pos == 0);
+    // 4) Insert prefix and update type
+    chunk_ensure_cap(curr, prefix_len);
+    memmove(curr->text + prefix_len, curr->text, curr->len + 1);
+    memcpy(curr->text, prefix, prefix_len);
+    curr->len += prefix_len;
+    doc->num_characters += prefix_len;
 
-    if (at_line_start)
-    {
-        chunk_insert(curr, local_pos, prefix, prefix_len);
-        doc->num_characters += prefix_len;
-        curr->type = type;
-        return SUCCESS;
-    }
-
-    // === Case 3: Not at line start — split and format chunk ===
-    split_and_format_chunk(doc, curr, local_pos, prefix, prefix_len, BLOCKQUOTE);
-
+    curr->type = type;
     return SUCCESS;
 }
 
-int markdown_ordered_list(document *doc, uint64_t version, size_t pos)
+int markdown_ordered_list(document *doc,
+                          uint64_t version,
+                          size_t pos)
 {
     (void)version;
 
     if (pos > doc->num_characters)
+    {
         return INVALID_CURSOR_POS;
+    }
 
-    const size_t prefix_len = 3;
-
-    // Case 1: empty document
     if (doc->head == NULL)
     {
-        size_t len = prefix_len; // "1. "
+
+        if (pos != 0)
+            return INVALID_CURSOR_POS;
+
+        // Create a new chunk with "1. " as its entire line
+        const char *text = "1. ";
+        size_t len = 3;
         size_t cap = calculate_cap(len + 1);
-        char *text = Calloc(cap, sizeof(char));
-        memcpy(text, "1. ", len);
-        text[len] = '\0';
+        char *buf = Calloc(cap, 1);
+        memcpy(buf, text, len);
+        buf[len] = '\0';
 
         Chunk *c = Calloc(1, sizeof(Chunk));
-        init_chunk(c, ORDERED_LIST_ITEM, len, cap, text, 1, NULL, NULL);
+        init_chunk(c, ORDERED_LIST_ITEM,
+                   len, cap, buf,
+                   1, // index
+                   NULL, NULL);
 
-        doc->head = doc->tail = c;
+        doc->head = c;
+        doc->tail = c;
         doc->num_chunks = 1;
         doc->num_characters = len;
         return SUCCESS;
     }
 
+    // 1) Normalize into a single-line chunk at the start of that line
     size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+    Chunk *curr = ensure_line_start(doc, version, &pos, &local_pos);
 
-    fprintf(stderr,
-            "[OL] formatting chunk at pos=%zu: before text=\"%s\", type=%d, index=%d\n",
-            pos, curr->text, curr->type, curr->index_OL);
-
-    bool at_line_start = (pos == 0 || local_pos == 0);
-
-    int my_index = prev_ol_index(curr) + 1;
+    // 2) Compute list index from previous list item
+    int base = prev_ol_index(curr);
+    int my_index = base + 1;
     if (my_index > 9)
-        my_index = 9;
-
-    char prefix[4];
-    prefix[0] = '0' + my_index;
-    prefix[1] = '.';
-    prefix[2] = ' ';
-    prefix[3] = '\0';
-
-    // === Case 2: at start of line - insert in-place
-    if (at_line_start)
     {
-        chunk_insert(curr, local_pos, prefix, prefix_len);
-        curr->type = ORDERED_LIST_ITEM;
-        curr->index_OL = my_index;
-        doc->num_characters += prefix_len;
-
-        fprintf(stderr,
-                "[OL] after  formatting chunk: text=\"%s\", type=%d, index=%d\n",
-                curr->text, curr->type, curr->index_OL);
-
-        renumber_list_from(curr);
-        return SUCCESS;
+        my_index = 9;
     }
 
-    // === Case 3: mid-line split
-    size_t tail_len = curr->len - local_pos;
-    const char *tail_text = curr->text + local_pos;
+    // 3) Build and insert the prefix "N. "
+    const size_t prefix_len = 3;
+    char prefix[4] = {
+        (char)('0' + my_index),
+        '.',
+        ' ',
+        '\0'};
 
-    // Create new chunk with: prefix + tail_text
-    size_t new_len = prefix_len + tail_len;
-    size_t new_cap = calculate_cap(new_len + 1);
-    char *new_text = Calloc(new_cap, sizeof(char));
-    memcpy(new_text, prefix, prefix_len);
-    memcpy(new_text + prefix_len, tail_text, tail_len);
-    new_text[new_len] = '\0';
+    chunk_ensure_cap(curr, prefix_len);
+    memmove(curr->text + prefix_len,
+            curr->text,
+            curr->len + 1); // include '\0'
+    memcpy(curr->text, prefix, prefix_len);
+    curr->len += prefix_len;
+    doc->num_characters += prefix_len;
 
-    Chunk *new = Calloc(1, sizeof(Chunk));
-    init_chunk(new, ORDERED_LIST_ITEM, new_len, new_cap, new_text, my_index, curr->next, curr);
+    // 4) Update metadata and renumber the rest
+    curr->type = ORDERED_LIST_ITEM;
+    curr->index_OL = my_index;
+    renumber_list_from(curr);
 
-    if (curr->next)
-        curr->next->previous = new;
-    else
-        doc->tail = new;
-
-    curr->next = new;
-
-    // Truncate current chunk
-    curr->text[local_pos] = '\n';
-    curr->text[local_pos + 1] = '\0';
-    curr->len = local_pos + 1;
-
-    doc->num_chunks++;
-    doc->num_characters += prefix_len + 1;
-
-    fprintf(stderr,
-            "[OL] after  formatting chunk: text=\"%s\", type=%d, index=%d\n",
-            curr->text, curr->type, curr->index_OL);
-
-    renumber_list_from(new);
     return SUCCESS;
 }
 
@@ -633,16 +584,12 @@ int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
 {
     (void)version;
 
-    if (pos > doc->num_characters)
-    {
-        return INVALID_CURSOR_POS;
-    }
-
+    // 1) prefix
     const char *prefix = "- ";
-    size_t prefix_len = 2;
     chunk_type type = UNORDERED_LIST_ITEM;
+    size_t prefix_len = 3;
 
-    // === Case 1: Empty document ===
+    // 2) Empty document case
     if (doc->head == NULL)
     {
         size_t cap = calculate_cap(prefix_len + 1);
@@ -657,27 +604,21 @@ int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
         doc->tail = new_chunk;
         doc->num_chunks = 1;
         doc->num_characters = prefix_len;
-
         return SUCCESS;
     }
 
-    // === Case 2: Locate target chunk ===
+    // 3) Normalize to a one-line chunk at line start
     size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+    Chunk *curr = ensure_line_start(doc, version, &pos, &local_pos);
 
-    // === Check if at line start ===
-    bool at_line_start = (pos == 0 || local_pos == 0);
+    // 4) Insert prefix and update type
+    chunk_ensure_cap(curr, prefix_len);
+    memmove(curr->text + prefix_len, curr->text, curr->len + 1);
+    memcpy(curr->text, prefix, prefix_len);
+    curr->len += prefix_len;
+    doc->num_characters += prefix_len;
 
-    if (at_line_start)
-    {
-        chunk_insert(curr, local_pos, prefix, prefix_len);
-        doc->num_characters += prefix_len;
-        curr->type = type;
-        return SUCCESS;
-    }
-
-    // === Case 3: Not at line start — split and format chunk ===
-    split_and_format_chunk(doc, curr, local_pos, prefix, prefix_len, UNORDERED_LIST_ITEM);
+    curr->type = type;
     return SUCCESS;
 }
 
@@ -696,100 +637,64 @@ int markdown_code(document *doc, uint64_t version, size_t start, size_t end)
 int markdown_horizontal_rule(document *doc, uint64_t version, size_t pos)
 {
     (void)version;
-
     if (pos > doc->num_characters)
     {
         return INVALID_CURSOR_POS;
     }
 
-    const char *hr_text = "---\n";
-    const size_t hr_len = 4;
-
-    // === Case 1: Empty document ===
     if (doc->head == NULL)
     {
-        char *text = Calloc(hr_len + 1, sizeof(char));
-        memcpy(text, hr_text, hr_len + 1); // includes '\0'
+        const char *hr_text = "---\n";
+        size_t len = 4;
+        size_t cap = calculate_cap(len + 1);
+        char *text = Calloc(cap, sizeof(char));
+        memcpy(text, hr_text, len);
+        text[len] = '\0';
 
-        Chunk *hr = Calloc(1, sizeof(Chunk));
-        init_chunk(hr, HORIZONTAL_RULE, hr_len, hr_len + 1, text, 0, NULL, NULL);
+        Chunk *c = Calloc(1, sizeof(Chunk));
+        init_chunk(c, HORIZONTAL_RULE, len, cap, text, 0, NULL, NULL);
 
-        doc->head = hr;
-        doc->tail = hr;
+        doc->head = c;
+        doc->tail = c;
         doc->num_chunks = 1;
-        doc->num_characters = hr_len;
+        doc->num_characters = len;
         return SUCCESS;
     }
 
-    // === Locate insertion point ===
-    size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
-    bool at_line_start = (pos == 0 || local_pos == 0);
+    // 1) Locate & split to line start
+    size_t local;
+    Chunk *curr = ensure_line_start(doc, version, &pos, &local);
+    // Now `curr` begins exactly at pos, at the start of a line.
 
-    if (at_line_start)
-    {
-        // Insert HRULE before curr
-        char *text = Calloc(hr_len + 1, sizeof(char));
-        memcpy(text, hr_text, hr_len + 1);
-
-        Chunk *hr = Calloc(1, sizeof(Chunk));
-        init_chunk(hr, HORIZONTAL_RULE, hr_len, hr_len + 1, text, 0, curr, curr->previous);
-
-        if (curr->previous)
-        {
-            curr->previous->next = hr;
-        }
-        else
-        {
-            doc->head = hr;
-        }
-
-        curr->previous = hr;
-        doc->num_chunks++;
-        doc->num_characters += hr_len;
-        return SUCCESS;
-    }
-
-    // === Not at line start: split curr, insert HRULE in middle ===
-    size_t tail_len = curr->len - local_pos;
-    size_t tail_cap = calculate_cap(tail_len + 1);
-    char *tail_text = Calloc(tail_cap, sizeof(char));
-    memcpy(tail_text, curr->text + local_pos, tail_len);
-    tail_text[tail_len] = '\0';
-
-    Chunk *tail = Calloc(1, sizeof(Chunk));
-    init_chunk(tail, PLAIN, tail_len, tail_cap, tail_text, 0, curr->next, NULL);
-
-    char *hr_buf = Calloc(hr_len + 1, sizeof(char));
-    memcpy(hr_buf, hr_text, hr_len + 1);
+    // 2) Create a standalone HR chunk
+    const char *hr_text = "---\n";
+    size_t hr_len = 4;
+    size_t cap = calculate_cap(hr_len + 1);
+    char *buf = Calloc(cap, 1);
+    memcpy(buf, hr_text, hr_len);
+    buf[hr_len] = '\0';
 
     Chunk *hr = Calloc(1, sizeof(Chunk));
-    init_chunk(hr, HORIZONTAL_RULE, hr_len, hr_len + 1, hr_buf, 0, tail, curr);
+    init_chunk(hr,
+               HORIZONTAL_RULE,
+               hr_len,
+               cap,
+               buf,
+               0, // no OL index
+               curr,
+               curr->previous);
 
-    if (curr->next)
-    {
-        curr->next->previous = tail;
-    }
+    // Splice it in front of `curr`
+    if (curr->previous)
+        curr->previous->next = hr;
     else
-    {
-        doc->tail = tail;
-    }
+        doc->head = hr;
 
-    tail->previous = hr;
-    curr->next = hr;
+    curr->previous = hr;
 
-    curr->len = local_pos + 1;
-    curr->text[local_pos] = '\n';
-    curr->text[local_pos + 1] = '\0';
+    doc->num_chunks++;
+    doc->num_characters += hr_len;
 
-    doc->num_chunks += 2;
-    doc->num_characters += hr_len + 1; // +1 for inserted newline
-
-    if (hr->next && hr->next->next && hr->next->next->type == ORDERED_LIST_ITEM)
-    {
-        hr->next->next->index_OL = 1;
-        renumber_list_from(hr->next->next);
-    }
     return SUCCESS;
 }
 

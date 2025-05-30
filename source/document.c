@@ -1,4 +1,5 @@
 #include "document.h"
+#include "markdown.h"
 #include "memory.h"
 
 // === Document helpers ===
@@ -69,6 +70,27 @@ void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
     }
 }
 
+
+Chunk *ensure_line_start(document *doc,
+                                uint64_t version,
+                                size_t *pos_out,
+                                size_t *local_pos_out)
+{
+    size_t local;
+    Chunk *curr = locate_chunk(doc, *pos_out, &local);
+
+    // If we're in the middle of a line, split it:
+    if (local > 0) {
+        // Inserts a '\n' at pos and creates a new chunk for the rest
+        markdown_newline(doc, version, *pos_out);
+        (*pos_out) += 1;           // move past the inserted newline
+        curr = curr->next;         // now the first chunk of the new line
+        local = 0;                 
+    }
+
+    *local_pos_out = local;
+    return curr;
+}
 // === Chunk helpers ===
 void init_chunk(Chunk *chunk, chunk_type type, size_t len, size_t cap, char *text, int index_OL, Chunk *next, Chunk *previous)
 {
@@ -127,8 +149,10 @@ void chunk_insert(Chunk *curr, size_t local_pos, const char *content, size_t con
 
 int prev_ol_index(Chunk *c)
 {
-    if (c && c->previous && c->previous->type == ORDERED_LIST_ITEM)
+    if (c && c->previous && c->previous->type == ORDERED_LIST_ITEM){
         return c->previous->index_OL;
+    }
+        
     return 0;
 }
 
