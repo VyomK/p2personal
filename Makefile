@@ -33,6 +33,10 @@ server: $(OBJS_SERVER)
 client: $(OBJS_CLIENT)
 	$(CC) $(CFLAGS) -o client $(OBJS_CLIENT) $(LDFLAGS)
 
+markdown.o: source/markdown.c libs/markdown.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+
 # Object file rules
 source/markdown.o: source/markdown.c libs/markdown.h
 	$(CC) $(CFLAGS) -c $< -o $@
