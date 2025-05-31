@@ -71,10 +71,7 @@ void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
 }
 
 
-Chunk *ensure_line_start(document *doc,
-                                uint64_t version,
-                                size_t *pos_out,
-                                size_t *local_pos_out)
+Chunk *ensure_line_start(document *doc, size_t *pos_out, size_t *local_pos_out)
 {
     size_t local;
     Chunk *curr = locate_chunk(doc, *pos_out, &local);
@@ -82,7 +79,7 @@ Chunk *ensure_line_start(document *doc,
     // If we're in the middle of a line, split it:
     if (local > 0) {
         // Inserts a '\n' at pos and creates a new chunk for the rest
-        markdown_newline(doc, version, *pos_out);
+        naive_newline(doc, *pos_out);
         (*pos_out) += 1;           // move past the inserted newline
         curr = curr->next;         // now the first chunk of the new line
         local = 0;                 

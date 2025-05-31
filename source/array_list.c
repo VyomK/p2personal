@@ -53,14 +53,20 @@ void *remove_from(array_list *array, void *element)
     return NULL;
 }
 
-void free_array(array_list *array, int free_items)
+void free_array(array_list *array)
 {
-    if (free_items) {
+    
         for (size_t i = 0; i < array->size; i++) {
             free(array->data[i]);
         }
-    }
+    
     free(array->data);
     free(array);
 }
 
+array_list* clear_array(array_list *array)
+{
+    array_list* tmp = create_array(array->capacity);
+    free_array(array);
+    return tmp;
+}

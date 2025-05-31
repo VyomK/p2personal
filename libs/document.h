@@ -59,7 +59,6 @@ void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
                             const char *prefix, size_t prefix_len, chunk_type new_type);
 
 Chunk *ensure_line_start(document *doc,
-                                uint64_t version,
                                 size_t *pos_out,
                                 size_t *local_pos_out);
 

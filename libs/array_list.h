@@ -1,7 +1,8 @@
 #ifndef DYNAMIC_ARRAY_H
 #define DYNAMIC_ARRAY_H
 
-#include <stddef.h> // for size_t
+#include <stddef.h>
+
 
 
 typedef struct dynamic_array {
@@ -21,6 +22,8 @@ void *remove_at(array_list *array, int pos);
 
 void *remove_from(array_list *array, void *element);
 
-void free_array(array_list *array, int free_items);
+void free_array(array_list *array);
+
+array_list* clear_array(array_list *array);
 
 #endif
