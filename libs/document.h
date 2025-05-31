@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include "array_list.h"
 
 
 /**
@@ -39,6 +40,13 @@ typedef struct chunk
     struct chunk *previous;
 } Chunk;
 
+
+typedef struct meta_pos
+{
+    size_t snapshot_pos;
+    int offset;
+
+} meta_pos;
 typedef struct
 {
     Chunk *head;
@@ -47,12 +55,20 @@ typedef struct
     size_t num_chunks;     // total number of lines (chunks)
     size_t num_characters; // total character count 
 
-    uint64_t version;      // incremented during TIME_INTERVAL broadcast
+    uint64_t version;  
+        
+    char* snapshot;
+    size_t snapshot_len;
+
+    array_list meta_log;
+
 
 } document;
 
-// Functions from here onwards.
 
+
+
+// === NAIVE DOC STRUCTURE HELPERS ===
 // === Document helpers ===
 Chunk* locate_chunk(document* doc, size_t pos, size_t* local_pos);
 void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,

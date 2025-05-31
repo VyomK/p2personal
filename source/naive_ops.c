@@ -15,7 +15,7 @@
 // === Edit Commands ===
 int naive_insert(document *doc, size_t pos, const char *content)
 {
-
+    size_t snapshot_pos = pos;
     size_t content_size = strlen(content);
 
     if (doc->head == NULL)
@@ -48,6 +48,7 @@ int naive_insert(document *doc, size_t pos, const char *content)
             doc->tail = new_chunk;
             doc->num_characters = content_size;
             doc->num_chunks++;
+            update_meta_log(doc->meta_log, snapshot_pos, content_size);
 
             return SUCCESS;
         }
@@ -64,19 +65,35 @@ int naive_insert(document *doc, size_t pos, const char *content)
     chunk_insert(curr, local_pos, content, content_size);
     doc->num_characters += content_size;
 
+    update_meta_log(doc->meta_log, snapshot_pos, content_size);
     return SUCCESS;
-    return 0;
+    
 }
 
 int naive_delete(document *doc, size_t pos, size_t len)
 {
+    
     if (!doc)
         return INVALID_CURSOR_POS;
+    
+    size_t snapshot_pos = pos;
+    size_t snapshot_len = strlen(doc->snapshot);
+
+    if (snapshot_pos > snapshot_len)
+        return INVALID_CURSOR_POS;
+
+    // Clamp deletion to not go beyond snapshot
+    if (snapshot_pos + len > snapshot_len)
+        len = snapshot_len - snapshot_pos;
+
     if (len == 0)
         return SUCCESS;
+
+        
     if (pos > doc->num_characters)
         return INVALID_CURSOR_POS;
 
+    
     /* 1) Locate & Analyze */
     size_t local_pos;
     Chunk *start = locate_chunk(doc, pos, &local_pos);
@@ -106,6 +123,8 @@ int naive_delete(document *doc, size_t pos, size_t len)
         {
             renumber_list_from(start->next);
         }
+
+        update_meta_log(doc->meta_log, snapshot_pos, len);
         return SUCCESS;
     }
 
@@ -212,6 +231,7 @@ int naive_delete(document *doc, size_t pos, size_t len)
         renumber_list_from(after_merge);
     }
 
+    update_meta_log(doc->meta_log, snapshot_pos, -(int)total_deleted);
     return SUCCESS;
 }
 
@@ -223,6 +243,7 @@ int naive_newline(document *doc, size_t pos)
         return INVALID_CURSOR_POS;
     }
 
+    size_t snapshot_pos = pos;
     if (doc->head == NULL)
     {
 
@@ -236,7 +257,9 @@ int naive_newline(document *doc, size_t pos)
         doc->head = new_chunk;
         doc->tail = new_chunk;
         doc->num_characters = 1;
-        doc->num_chunks++;
+        doc->num_chunks++; 
+
+        update_meta_log(doc->meta_log, snapshot_pos, 1);
 
         return SUCCESS;
     }
@@ -278,6 +301,8 @@ int naive_newline(document *doc, size_t pos)
         renumber_list_from(new->next);
     }
 
+    update_meta_log(doc->meta_log, snapshot_pos, 1);
+
     return SUCCESS;
 }
 
@@ -289,6 +314,7 @@ int naive_heading(document *doc, size_t level, size_t pos)
     }
 
     // 1) Determine prefix and type
+    size_t snapshot_pos = pos;
     const char *prefix = NULL;
     chunk_type type = PLAIN;
     if (level == 1)
@@ -324,6 +350,8 @@ int naive_heading(document *doc, size_t level, size_t pos)
         doc->tail = new_chunk;
         doc->num_chunks = 1;
         doc->num_characters = prefix_len;
+
+        update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
         return SUCCESS;
     }
 
@@ -339,6 +367,8 @@ int naive_heading(document *doc, size_t level, size_t pos)
     doc->num_characters += prefix_len;
     curr->type = type;
     curr->index_OL = 0;
+
+    update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
 
     return SUCCESS;
 }
@@ -367,6 +397,7 @@ int naive_italic(document *doc, size_t start, size_t end)
 
 int naive_blockquote(document *doc, size_t pos)
 {
+    size_t snapshot_pos = pos;
 
     // 1) prefix
     const char *prefix = "> ";
@@ -388,6 +419,7 @@ int naive_blockquote(document *doc, size_t pos)
         doc->tail = new_chunk;
         doc->num_chunks = 1;
         doc->num_characters = prefix_len;
+        update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
         return SUCCESS;
     }
 
@@ -405,6 +437,8 @@ int naive_blockquote(document *doc, size_t pos)
     curr->type = type;
     curr->index_OL = 0;
 
+    update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
+
     return SUCCESS;
 }
 
@@ -414,6 +448,8 @@ int naive_ordered_list(document *doc, size_t pos)
     {
         return INVALID_CURSOR_POS;
     }
+
+    size_t snapshot_pos = pos;
 
     if (doc->head == NULL)
     {
@@ -439,6 +475,8 @@ int naive_ordered_list(document *doc, size_t pos)
         doc->tail = c;
         doc->num_chunks = 1;
         doc->num_characters = len;
+
+        update_meta_log(doc->meta_log, snapshot_pos, len);
         return SUCCESS;
     }
 
@@ -475,11 +513,13 @@ int naive_ordered_list(document *doc, size_t pos)
     curr->index_OL = my_index;
     renumber_list_from(curr);
 
+    update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
     return SUCCESS;
 }
 
 int naive_unordered_list(document *doc, size_t pos)
 {
+    size_t snapshot_pos = pos;
     // 1) prefix
     const char *prefix = "- ";
     chunk_type type = UNORDERED_LIST_ITEM;
@@ -500,6 +540,8 @@ int naive_unordered_list(document *doc, size_t pos)
         doc->tail = new_chunk;
         doc->num_chunks = 1;
         doc->num_characters = prefix_len;
+        
+        update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
 
         return SUCCESS;
     }
@@ -516,6 +558,9 @@ int naive_unordered_list(document *doc, size_t pos)
 
     curr->type = type;
     curr->index_OL = 0;
+
+    update_meta_log(doc->meta_log, snapshot_pos, prefix_len);
+
     return SUCCESS;
 }
 
@@ -538,6 +583,8 @@ int naive_horizontal_rule(document *doc, size_t pos)
         return INVALID_CURSOR_POS;
     }
 
+    size_t snapshot_pos = pos;
+
     if (doc->head == NULL)
     {
         const char *hr_text = "---\n";
@@ -554,6 +601,8 @@ int naive_horizontal_rule(document *doc, size_t pos)
         doc->tail = c;
         doc->num_chunks = 1;
         doc->num_characters = len;
+
+        update_meta_log(doc->meta_log, snapshot_pos, len);
         return SUCCESS;
     }
 
@@ -576,7 +625,7 @@ int naive_horizontal_rule(document *doc, size_t pos)
                hr_len,
                cap,
                buf,
-               0, // no OL index
+               0, 
                curr,
                curr->previous);
 
@@ -590,6 +639,8 @@ int naive_horizontal_rule(document *doc, size_t pos)
 
     doc->num_chunks++;
     doc->num_characters += hr_len;
+
+    update_meta_log(doc->meta_log, snapshot_pos, hr_len);
 
     return SUCCESS;
 }

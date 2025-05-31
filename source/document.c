@@ -2,7 +2,20 @@
 #include "markdown.h"
 #include "memory.h"
 
+
+
+
+
+
+// === NAIVE DOC STRUCTURE HELPERS ===
 // === Document helpers ===
+void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset) {
+    meta_pos *m = Calloc(1, sizeof(meta_pos));
+    m->snapshot_pos = snapshot_pos;
+    m->offset = offset;
+    append_to(meta_positions, m);
+}
+
 
 Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
 {
