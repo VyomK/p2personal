@@ -65,10 +65,13 @@ int markdown_delete(document *doc,
 
     if (!doc)
         return INVALID_CURSOR_POS;
-    if (len == 0)
-        return SUCCESS;
     if (pos > doc->snapshot_len || pos < 0)
         return INVALID_CURSOR_POS;
+
+    if (pos + len > doc->snapshot_len)
+        len = doc->snapshot_len - pos;
+    if (len == 0)
+        return SUCCESS;
 
     range *new_range = Calloc(1, sizeof(range));
     new_range->start = pos;
