@@ -1,7 +1,8 @@
 #include "markdown.h"
 #include "memory.h"
 #include "document.h"
-#include "stdbool.h"
+#include "array_list.h"
+#include <stdbool.h>
 
 #define SUCCESS 0
 #define INVALID_CURSOR_POS -1
@@ -43,55 +44,15 @@ void markdown_free(document *doc)
 int markdown_insert(document *doc, uint64_t version, size_t pos, const char *content)
 {
     (void)version;
-    size_t content_size = strlen(content);
-
-    // if (version == 0) IMPLEMENT LATER: CAUSING TESTING PROBLEMS RN
-    if (doc->head == NULL)
-    {
-        if (pos != 0)
-        {
-            /*HANDLE INCORRECT POSITION HERE
-                i. possibly leave incorrect position to be handled by server, so server
-                code checks for valid position and it's not handled here.
-                For the client side, server will itself send the processed commands.
-
-                ii. there are return codes given, maybe they make position handling
-                easier in server code ? Decided to handle for now. Formatting markdown
-                functions do return int type
-
-            */
-            return INVALID_CURSOR_POS;
-        }
-        else
-        {
-
-            Chunk *new_chunk = (Chunk *)Calloc(1, sizeof(Chunk));
-            size_t cap = calculate_cap(content_size + 1);
-
-            char *text = (char *)Calloc(cap, sizeof(char));
-            text = memcpy(text, content, content_size + 1);
-            init_chunk(new_chunk, PLAIN, content_size, cap, text, 0, NULL, NULL);
-
-            doc->head = new_chunk;
-            doc->tail = new_chunk;
-            doc->num_characters = content_size;
-            doc->num_chunks++;
-
-            return SUCCESS;
-        }
-    }
-
-    if (pos > doc->num_characters)
-    {
+    if (!doc || !content || pos > doc->snapshot_len)
         return INVALID_CURSOR_POS;
-    }
 
-    size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_INSERT;
+    c->snap_pos = pos;
+    c->content = content;
 
-    chunk_insert(curr, local_pos, content, content_size);
-    doc->num_characters += content_size;
-
+    append_to(doc->cmd_list, c);
     return SUCCESS;
 }
 
@@ -106,144 +67,31 @@ int markdown_delete(document *doc,
         return INVALID_CURSOR_POS;
     if (len == 0)
         return SUCCESS;
-    if (pos > doc->num_characters)
+    if (pos > doc->snapshot_len || pos < 0)
         return INVALID_CURSOR_POS;
 
-    /* 1) Locate & Analyze */
-    size_t local_pos;
-    Chunk *start = locate_chunk(doc, pos, &local_pos);
-    if (!start)
-        return INVALID_CURSOR_POS;
+    range *new_range = Calloc(1, sizeof(range));
+    new_range->start = pos;
+    new_range->end = pos + len;
 
-    bool ol_damaged = false;
-    if (start->type == ORDERED_LIST_ITEM && local_pos < 3 && local_pos + len >= 3)
+    for (size_t i = 0; i < doc->deleted_ranges->size; ++i)
     {
-        start->type = PLAIN;
-        start->index_OL = 0;
-        ol_damaged = true;
-    }
+        range *r = (range *)get_from(doc->deleted_ranges, i);
 
-    /* 2a) Fast‐path: delete wholly within one chunk */
-    if (local_pos + len < start->len)
-    {
-        memmove(start->text + local_pos,
-                start->text + local_pos + len,
-                (start->len - (local_pos + len)) + 1);
-        start->len -= len;
-        doc->num_characters -= len;
-
-        if (ol_damaged &&
-            start->next &&
-            start->next->type == ORDERED_LIST_ITEM)
+        if (new_range->start <= r->end && r->start <= new_range->end)
         {
-            renumber_list_from(start->next);
-        }
-        return SUCCESS;
-    }
+            // Merge r into new_range
+            if (r->start < new_range->start)
+                new_range->start = r->start;
+            if (r->end > new_range->end)
+                new_range->end = r->end;
 
-    /* 2b) Spanning‐delete across chunks */
-    size_t to_delete = len;
-    size_t total_deleted = 0;
-
-    /* remove tail of start */
-    size_t rem = start->len - local_pos;
-    to_delete -= rem;
-    total_deleted += rem;
-
-    /* free any fully‐deleted intermediate chunks */
-    Chunk *curr = start->next;
-    while (curr && to_delete >= curr->len)
-    {
-        if (curr->type == ORDERED_LIST_ITEM)
-            ol_damaged = true;
-
-        to_delete -= curr->len;
-        total_deleted += curr->len;
-
-        Chunk *tmp = curr;
-        curr = curr->next;
-        tmp->previous->next = curr;
-        if (curr)
-            curr->previous = tmp->previous;
-        else
-            doc->tail = tmp->previous;
-        free_chunk(tmp);
-        doc->num_chunks--;
-    }
-
-    /* compute suffix in curr */
-    size_t suffix_len = 0;
-    if (curr)
-    {
-        suffix_len = curr->len - to_delete;
-        total_deleted += to_delete;
-    }
-
-    /* 3) Update counts */
-    doc->num_characters -= total_deleted;
-
-    /* 4) Merge or remove start chunk */
-    Chunk *after_merge = NULL;
-    if (local_pos + suffix_len > 0)
-    {
-        chunk_ensure_cap(start, local_pos + suffix_len);
-        if (suffix_len)
-        {
-            memcpy(start->text + local_pos,
-                   curr->text + to_delete,
-                   suffix_len + 1);
-        }
-        else
-        {
-            start->text[local_pos] = '\0';
-        }
-        start->len = local_pos + suffix_len;
-
-        if (curr)
-        {
-            after_merge = curr->next;
-            if (curr->type == ORDERED_LIST_ITEM)
-                ol_damaged = true;
-            start->next = curr->next;
-            if (curr->next)
-                curr->next->previous = start;
-            else
-                doc->tail = start;
-            free_chunk(curr);
-            doc->num_chunks--;
-        }
-        else
-        {
-            /* no curr: everything after start remains */
-            after_merge = start->next;
+            free(remove_at(doc->deleted_ranges, i)); // remove and free old
+            i = -1;                                  // restart since array has shifted
         }
     }
-    else
-    {
-        /* entire start removed */
-        after_merge = start->next;
-        if (start->previous)
-            start->previous->next = after_merge;
-        else
-            doc->head = after_merge;
-        if (after_merge)
-            after_merge->previous = start->previous;
-        else
-            doc->tail = start->previous;
-        if (start->type == ORDERED_LIST_ITEM)
-            ol_damaged = true;
-        free_chunk(start);
-        doc->num_chunks--;
-    }
 
-    /* 5) Post‐Process OL renumbering */
-    if (ol_damaged &&
-        after_merge &&
-        after_merge->type == ORDERED_LIST_ITEM)
-    {
-        renumber_list_from(after_merge);
-    }
-
+    append_to(doc->deleted_ranges, new_range);
     return SUCCESS;
 }
 
@@ -251,68 +99,14 @@ int markdown_delete(document *doc,
 int markdown_newline(document *doc, uint64_t version, size_t pos)
 {
 
-    (void)version;
-
-    if (pos > doc->num_characters)
-    {
+    if (!doc || pos > doc->snapshot_len)
         return INVALID_CURSOR_POS;
-    }
 
-    if (doc->head == NULL)
-    {
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_NEWLINE;
+    c->snap_pos = pos;
 
-        Chunk *new_chunk = (Chunk *)Calloc(1, sizeof(Chunk));
-        size_t cap = calculate_cap(1 + 1);
-        char *text = (char *)Calloc(cap, sizeof(char));
-        text[0] = '\n';
-        text[1] = '\0';
-        init_chunk(new_chunk, PLAIN, 1, cap, text, 0, NULL, NULL);
-
-        doc->head = new_chunk;
-        doc->tail = new_chunk;
-        doc->num_characters = 1;
-        doc->num_chunks++;
-
-        return SUCCESS;
-    }
-
-    size_t local_pos;
-    Chunk *curr = locate_chunk(doc, pos, &local_pos);
-
-    size_t num_remaining = curr->len - local_pos;
-
-    Chunk *new = (Chunk *)Calloc(1, sizeof(Chunk));
-    size_t cap = calculate_cap(num_remaining + 1);
-    char *new_text = (char *)Calloc(cap, sizeof(char));
-
-    memmove(new_text, curr->text + local_pos, num_remaining);
-    new_text[num_remaining] = '\0';
-    init_chunk(new, PLAIN, num_remaining, cap, new_text, 0, curr->next, curr);
-
-    if (curr->next)
-    {
-        curr->next->previous = new;
-    }
-
-    if (curr == doc->tail)
-    {
-        doc->tail = new;
-    }
-
-    doc->num_characters++;
-    doc->num_chunks++;
-
-    curr->text[local_pos] = '\n';
-    curr->text[local_pos + 1] = '\0';
-    curr->next = new;
-    curr->len = local_pos + 1;
-
-    if (new->next && new->next->type == ORDERED_LIST_ITEM)
-    {
-        new->next->index_OL = 1;
-        renumber_list_from(new->next);
-    }
-
+    append_to(doc->cmd_list, c);
     return SUCCESS;
 }
 
@@ -320,82 +114,73 @@ int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
 {
     (void)version;
 
-    if (level < 1 || level > 3 || pos > doc->num_characters)
-    {
+    if (!doc || pos > doc->snapshot_len || level < 1 || level > 3)
         return INVALID_CURSOR_POS;
-    }
 
-    // 1) Determine prefix and type
-    const char *prefix = NULL;
-    chunk_type type = PLAIN;
-    if (level == 1)
-    {
-        prefix = "# ";
-        type = HEADING1;
-    }
-    else if (level == 2)
-    {
-        prefix = "## ";
-        type = HEADING2;
-    }
-    else
-    {
-        prefix = "### ";
-        type = HEADING3;
-    }
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_BLOCK_HEADING;
+    c->snap_pos = pos;
+    c->heading_level = level;
 
-    size_t prefix_len = strlen(prefix);
-
-    // 2) Empty document case
-    if (doc->head == NULL)
-    {
-        size_t cap = calculate_cap(prefix_len + 1);
-        char *text = Calloc(cap, sizeof(char));
-        memcpy(text, prefix, prefix_len);
-        text[prefix_len] = '\0';
-
-        Chunk *new_chunk = Calloc(1, sizeof(Chunk));
-        init_chunk(new_chunk, type, prefix_len, cap, text, 0, NULL, NULL);
-
-        doc->head = new_chunk;
-        doc->tail = new_chunk;
-        doc->num_chunks = 1;
-        doc->num_characters = prefix_len;
-        return SUCCESS;
-    }
-
-    // 3) Normalize to a one-line chunk at line start
-    size_t local_pos;
-    Chunk *curr = ensure_line_start(doc, &pos, &local_pos);
-
-    // 4) Insert prefix and update type
-    chunk_ensure_cap(curr, prefix_len);
-    memmove(curr->text + prefix_len, curr->text, curr->len + 1);
-    memcpy(curr->text, prefix, prefix_len);
-    curr->len += prefix_len;
-    doc->num_characters += prefix_len;
-    curr->type = type;
-    curr->index_OL = 0;
-
+    append_to(doc->cmd_list, c);
     return SUCCESS;
 }
 
 int markdown_bold(document *doc, uint64_t version, size_t start, size_t end)
 {
+    if (!doc || start >= end || end > doc->snapshot_len)
+    {
+        return INVALID_CURSOR_POS;
+    }
 
-    
+    range *r1 = clamp_to_valid(doc, start);
+    range *r2 = clamp_to_valid(doc, end);
+
+    if (r1 && r2)
+        return DELETED_POSITION;
+
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_INLINE_BOLD;
+    c->snap_pos = start;
+    c->end_pos = end;
+
+    append_to(doc->cmd_list, c);
+    return SUCCESS;
 }
 
 int markdown_italic(document *doc, uint64_t version, size_t start, size_t end)
 {
-    
+    if (!doc || start >= end || end > doc->snapshot_len)
+    {
+        return INVALID_CURSOR_POS;
+    }
+
+    range *r1 = clamp_to_valid(doc, start);
+    range *r2 = clamp_to_valid(doc, end);
+
+    if (r1 && r2)
+        return DELETED_POSITION;
+
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_INLINE_ITALIC;
+    c->snap_pos = start;
+    c->end_pos = end;
+
+    append_to(doc->cmd_list, c);
+    return SUCCESS;
 }
 
 int markdown_blockquote(document *doc, uint64_t version, size_t pos)
 {
-    
+    if (!doc || pos > doc->snapshot_len)
+        return INVALID_CURSOR_POS;
 
-    
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_BLOCK_BLOCKQUOTE;
+    c->snap_pos = pos;
+
+    append_to(doc->cmd_list, c);
+    return SUCCESS;
 }
 
 int markdown_ordered_list(document *doc,
@@ -403,34 +188,89 @@ int markdown_ordered_list(document *doc,
                           size_t pos)
 {
     (void)version;
+    if (!doc || pos > doc->snapshot_len)
+        return INVALID_CURSOR_POS;
 
-    
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_BLOCK_OL_ITEM;
+    c->snap_pos = pos;
+
+    append_to(doc->cmd_list, c);
+    return SUCCESS;
 }
 
 int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
 {
     (void)version;
+    if (!doc || pos > doc->snapshot_len)
+        return INVALID_CURSOR_POS;
 
-    
-    
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_BLOCK_UL_ITEM;
+    c->snap_pos = pos;
 
-    
+    append_to(doc->cmd_list, c);
+    return SUCCESS;
 }
 
 int markdown_code(document *doc, uint64_t version, size_t start, size_t end)
 {
-    
+    if (!doc || start >= end || end > doc->snapshot_len)
+    {
+        return INVALID_CURSOR_POS;
+    }
+
+    range *r1 = clamp_to_valid(doc, start);
+    range *r2 = clamp_to_valid(doc, end);
+
+    if (r1 && r2)
+    {
+        return DELETED_POSITION;
+    }
+
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_INLINE_CODE;
+    c->snap_pos = start;
+    c->end_pos = end;
+
+    return SUCCESS;
 }
 
 int markdown_horizontal_rule(document *doc, uint64_t version, size_t pos)
 {
-    (void)version;
-    
+    if (!doc || pos > doc->snapshot_len)
+        return INVALID_CURSOR_POS;
+
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_BLOCK_HRULE;
+    c->snap_pos = pos;
+
+    append_to(doc->cmd_list, c);
+    return SUCCESS;
 }
 
 int markdown_link(document *doc, uint64_t version, size_t start, size_t end, const char *url)
 {
-    
+    if (!doc || start >= end || end > doc->snapshot_len)
+    {
+        return INVALID_CURSOR_POS;
+    }
+
+    range *r1 = clamp_to_valid(doc, start);
+    range *r2 = clamp_to_valid(doc, end);
+
+    if (r1 && r2)
+        return DELETED_POSITION;
+
+    cmd *c = Calloc(1, sizeof(cmd));
+    c->type = CMD_INLINE_LINK;
+    c->snap_pos = start;
+    c->end_pos = end;
+    c->content = url;
+
+    append_to(doc->cmd_list, c);
+
+    return SUCCESS;
 }
 
 // === Utilities ===
