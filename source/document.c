@@ -46,6 +46,27 @@ size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos
 // === NAIVE DOC STRUCTURE HELPERS ===
 // === Document helpers ===
 
+char *flatten_document(document *doc) {
+    if (!doc || !doc->head)
+        return Calloc(1,sizeof(char));  
+
+    
+    size_t total = doc->num_characters;
+    char *buf = Calloc(total + 1, sizeof(char)); // +1 for '\0'
+    char *p = buf;
+
+    Chunk *curr = doc->head;
+    while (curr) {
+        memcpy(p, curr->text, curr->len);
+        p += curr->len;
+        curr = curr->next;
+    }
+
+    *p = '\0'; 
+    return buf;
+}
+
+
 Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
 {
     Chunk *curr = doc->head;

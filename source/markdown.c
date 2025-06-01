@@ -294,20 +294,9 @@ void markdown_print(const document *doc, FILE *stream)
 
 char *markdown_flatten(const document *doc)
 {
-    if (!doc || doc->num_characters == 0)
-        return Malloc(1);
-
-    char *output = Malloc(doc->num_characters + 1); // +1 for null terminator
-    size_t offset = 0;
-
-    for (Chunk *c = doc->head; c; c = c->next)
-    {
-        memcpy(output + offset, c->text, c->len);
-        offset += c->len;
-    }
-
-    output[offset] = '\0';
-    return output;
+    if (!doc || !doc->snapshot)
+        return strdup("");
+    return strdup(doc->snapshot);
 }
 
 // === Versioning ===
