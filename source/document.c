@@ -1,14 +1,10 @@
 #include "document.h"
 #include "markdown.h"
 #include "memory.h"
+#include "naive_ops.h"
 
 
 
-
-
-
-// === NAIVE DOC STRUCTURE HELPERS ===
-// === Document helpers ===
 void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset) {
     meta_pos *m = Calloc(1, sizeof(meta_pos));
     m->snapshot_pos = snapshot_pos;
@@ -16,6 +12,39 @@ void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset
     append_to(meta_positions, m);
 }
 
+range *clamp_to_valid(document *doc, size_t pos) {
+    if (!doc || pos > doc->snapshot_len) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < doc->deleted_ranges->size; ++i) {
+        range *r = (range *)get_from(doc->deleted_ranges, i);
+        if (pos >= r->start && pos < r->end) {
+            return r; 
+        }
+    }
+
+    return NULL; 
+}
+
+size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos) {
+    long offset = 0;
+
+    for (size_t i = 0; i < meta_log->size; ++i) {
+        meta_pos *m = (meta_pos *)get_from(meta_log, i);
+
+        if (m->snapshot_pos < clamped_snapshot_pos) {
+            offset += m->offset;
+        }
+    }
+
+    long result = (long) clamped_snapshot_pos + offset;
+    return (result < 0) ? 0 : (size_t)result;
+}
+
+
+// === NAIVE DOC STRUCTURE HELPERS ===
+// === Document helpers ===
 
 Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
 {
@@ -84,15 +113,16 @@ void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
 }
 
 
-Chunk *ensure_line_start(document *doc, size_t *pos_out, size_t *local_pos_out)
+Chunk *ensure_line_start(document *doc, size_t *pos_out, size_t *local_pos_out, size_t snapshot_pos)
 {
+    
     size_t local;
     Chunk *curr = locate_chunk(doc, *pos_out, &local);
 
     // If we're in the middle of a line, split it:
     if (local > 0) {
         // Inserts a '\n' at pos and creates a new chunk for the rest
-        naive_newline(doc, *pos_out);
+        naive_newline_raw(doc, *pos_out, snapshot_pos);
         (*pos_out) += 1;           // move past the inserted newline
         curr = curr->next;         // now the first chunk of the new line
         local = 0;                 
