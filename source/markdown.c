@@ -29,10 +29,10 @@ document *markdown_init(void)
     return doc;
 }
 
-
 void markdown_free(document *doc)
 {
-    if (!doc) return;
+    if (!doc)
+        return;
 
     Chunk *curr = doc->head;
     while (curr)
@@ -51,7 +51,6 @@ void markdown_free(document *doc)
     free(doc);
 }
 
-
 // === Edit Commands ===
 int markdown_insert(document *doc, uint64_t version, size_t pos, const char *content)
 {
@@ -65,7 +64,7 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
     c->content = content;
 
     append_to(doc->cmd_list, c);
-    
+
     return SUCCESS;
 }
 
@@ -102,8 +101,8 @@ int markdown_delete(document *doc,
             if (r->end > new_range->end)
                 new_range->end = r->end;
 
-            free(remove_at(doc->deleted_ranges, i)); 
-            i = -1;                                  // restart since array has shifted
+            free(remove_at(doc->deleted_ranges, i));
+            i = -1; // restart since array has shifted
         }
     }
 
@@ -316,8 +315,12 @@ void markdown_print(const document *doc, FILE *stream)
 char *markdown_flatten(const document *doc)
 {
     if (!doc || !doc->snapshot)
-        return strdup("");
-    return strdup(doc->snapshot);
+        return Calloc(1, sizeof(char));
+
+    size_t len = doc->snapshot_len;
+    char *copy = Calloc(len + 1, sizeof(char));
+    memcpy(copy, doc->snapshot, len + 1);
+    return copy;
 }
 
 // === Versioning ===
@@ -334,7 +337,7 @@ void markdown_increment_version(document *doc)
         naive_delete(doc, r->start, r->end - r->start);
     }
 
-    // 2. Apply all insertions 
+    // 2. Apply all insertions
     for (size_t i = 0; i < doc->cmd_list->size; ++i)
     {
         cmd *c = (cmd *)get_from(doc->cmd_list, i);
@@ -395,7 +398,6 @@ void markdown_increment_version(document *doc)
         free(doc->snapshot);
     doc->snapshot = flatten_document(doc);
     doc->snapshot_len = doc->num_characters;
-    
 
     // 4. Clear metadata
     doc->meta_log = clear_array(doc->meta_log);
