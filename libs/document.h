@@ -107,8 +107,6 @@ size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos
 // === NAIVE DOC STRUCTURE HELPERS ===
 // === Document helpers ===
 Chunk* locate_chunk(document* doc, size_t pos, size_t* local_pos);
-void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
-                            const char *prefix, size_t prefix_len, chunk_type new_type);
 
 Chunk *ensure_line_start(document *doc, size_t *pos_out, size_t *local_pos_out, size_t snapshot_pos);
 

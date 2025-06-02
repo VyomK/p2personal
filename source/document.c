@@ -90,48 +90,7 @@ Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
     return curr;
 }
 
-void split_and_format_chunk(document *doc, Chunk *curr, size_t local_pos,
-                            const char *prefix, size_t prefix_len, chunk_type new_type)
-{
-    // Copy tail content from curr into new chunk
-    size_t tail_len = curr->len - local_pos;
-    size_t new_len = prefix_len + tail_len;
-    size_t new_cap = calculate_cap(new_len + 1);
 
-    char *new_text = Calloc(new_cap, sizeof(char));
-    memcpy(new_text, prefix, prefix_len);
-    memcpy(new_text + prefix_len, curr->text + local_pos, tail_len);
-    new_text[new_len] = '\0';
-
-    Chunk *new_chunk = Calloc(1, sizeof(Chunk));
-    init_chunk(new_chunk, new_type, new_len, new_cap, new_text, 0, curr->next, curr);
-
-    if (curr->next)
-    {
-        curr->next->previous = new_chunk;
-    }
-    else
-    {
-        doc->tail = new_chunk;
-    }
-
-    curr->next = new_chunk;
-
-    // Truncate current chunk
-    curr->len = local_pos + 1;
-    curr->text[local_pos] = '\n';
-    curr->text[local_pos + 1] = '\0';
-
-    doc->num_chunks++;
-    doc->num_characters += prefix_len + 1; // +1 for inserted '\n'
-
-    if (new_chunk->previous && new_chunk->previous->type == ORDERED_LIST_ITEM &&
-        new_chunk->next && new_chunk->next->type == ORDERED_LIST_ITEM)
-    {
-        new_chunk->next->index_OL = 1;
-        renumber_list_from(new_chunk->next);
-    }
-}
 
 
 Chunk *ensure_line_start(document *doc, size_t *pos_out, size_t *local_pos_out, size_t snapshot_pos)
