@@ -254,6 +254,8 @@ int markdown_code(document *doc, uint64_t version, size_t start, size_t end)
     c->snap_pos = start;
     c->end_pos = end;
 
+    append_to(doc->cmd_list, c);
+
     return SUCCESS;
 }
 
