@@ -764,7 +764,7 @@ int naive_link(document *doc, size_t start, size_t end, const char *url)
     // Construct full suffix: "](" + url + ")"
     size_t url_len = strlen(url);
     size_t suffix_len = 3 + url_len + 1; // "](", url, ')', '\0'
-    char *suffix = Malloc(suffix_len);
+    char *suffix = Calloc(suffix_len, sizeof(char));
     snprintf(suffix, suffix_len, "](%s)", url);
 
     // 5) Insert in reverse order

@@ -3,16 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-void *Malloc(size_t size)
-{
-    void *ptr = malloc(size);
-    if (!ptr)
-    {
-        fprintf(stderr, "Malloc failed (%zu bytes) [%s:%d]\n", size, __FILE__, __LINE__);
-        exit(EXIT_FAILURE);
-    }
-    return ptr;
-}
+
 
 void *Calloc(size_t nmemb, size_t size)
 {
