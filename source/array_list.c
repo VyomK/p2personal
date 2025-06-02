@@ -56,7 +56,7 @@ void *remove_from(array_list *array, void *element)
 void free_array(array_list *array)
 {
     
-        for (size_t i = 0; i < array->size; i++) {
+    for (size_t i = 0; i < array->size; i++) {
             free(array->data[i]);
         }
     

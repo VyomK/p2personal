@@ -7,11 +7,6 @@
 #include "array_list.h"
 
 
-/**
- * This file is the header file for all the document functions. You will be tested on the functions inside markdown.h
- * You are allowed to and encouraged multiple helper functions and data structures, and make your code as modular as possible.
- * Ensure you DO NOT change the name of document struct.
- */
 
 typedef enum
 {
@@ -30,7 +25,7 @@ typedef struct chunk
 {
     chunk_type type;
                           
-    size_t len;   // number of bytes in `text` (exclude null byte)
+    size_t len;   
     size_t cap;   // max. capacity of chunk, (multiples of 128)
 
     char *text;   
@@ -85,9 +80,7 @@ typedef struct
     Chunk *tail;
 
     size_t num_chunks;     // total number of lines (chunks)
-    size_t num_characters; // total character count 
-
-    uint64_t version;  
+    size_t num_characters; // total character count  
         
     char* snapshot;
     size_t snapshot_len;

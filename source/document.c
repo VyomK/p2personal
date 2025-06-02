@@ -3,7 +3,7 @@
 #include "memory.h"
 #include "naive_ops.h"
 
-
+// === NAIVE OPS HELPERS ===
 
 void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset) {
     meta_pos *m = Calloc(1, sizeof(meta_pos));
@@ -43,7 +43,7 @@ size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos
 }
 
 
-// === NAIVE DOC STRUCTURE HELPERS ===
+// === NAIVE DOC-STRUCTURE HELPERS ===
 // === Document helpers ===
 
 char *flatten_document(document *doc) {

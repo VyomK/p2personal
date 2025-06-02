@@ -12,33 +12,44 @@
 // === Init and Free ===
 document *markdown_init(void)
 {
-
     document *doc = (document *)Calloc(1, sizeof(document));
     doc->head = NULL;
     doc->tail = NULL;
     doc->num_characters = 0;
     doc->num_chunks = 0;
-    doc->version = 0;
+
+    doc->snapshot = NULL;
+    doc->snapshot_len = 0;
+
+    doc->meta_log = create_array(8);
+    doc->cmd_list = create_array(8);
+    doc->deleted_ranges = create_array(8);
 
     return doc;
 }
 
+
 void markdown_free(document *doc)
 {
-    if (doc)
+    if (!doc) return;
+
+    Chunk *curr = doc->head;
+    while (curr)
     {
-        Chunk *curr = doc->head;
-
-        while (curr)
-        {
-            Chunk *temp = curr;
-            curr = curr->next;
-            free_chunk(temp);
-        }
-
-        free(doc);
+        Chunk *temp = curr;
+        curr = curr->next;
+        free_chunk(temp);
     }
+
+    free(doc->snapshot);
+
+    free_array(doc->meta_log);
+    free_array(doc->cmd_list);
+    free_array(doc->deleted_ranges);
+
+    free(doc);
 }
+
 
 // === Edit Commands ===
 int markdown_insert(document *doc, uint64_t version, size_t pos, const char *content)
@@ -89,7 +100,7 @@ int markdown_delete(document *doc,
             if (r->end > new_range->end)
                 new_range->end = r->end;
 
-            free(remove_at(doc->deleted_ranges, i)); // remove and free old
+            free(remove_at(doc->deleted_ranges, i)); 
             i = -1;                                  // restart since array has shifted
         }
     }
@@ -300,7 +311,86 @@ char *markdown_flatten(const document *doc)
 }
 
 // === Versioning ===
+
 void markdown_increment_version(document *doc)
 {
-    doc->version += 1;
+    if (!doc)
+        return INVALID_CURSOR_POS;
+
+    // 1. Apply all deletions
+    for (size_t i = 0; i < doc->deleted_ranges->size; ++i)
+    {
+        range *r = (range *)get_from(doc->deleted_ranges, i);
+        naive_delete(doc, r->start, r->end - r->start);
+    }
+
+    // 2. Apply all insertions 
+    for (size_t i = 0; i < doc->cmd_list->size; ++i)
+    {
+        cmd *c = (cmd *)get_from(doc->cmd_list, i);
+
+        switch (c->type)
+        {
+        case CMD_INSERT:
+            naive_insert(doc, c->snap_pos, c->content);
+            break;
+
+        case CMD_NEWLINE:
+            naive_newline(doc, c->snap_pos);
+            break;
+
+        case CMD_BLOCK_HEADING:
+            naive_heading(doc, c->heading_level, c->snap_pos);
+            break;
+
+        case CMD_BLOCK_BLOCKQUOTE:
+            naive_blockquote(doc, c->snap_pos);
+            break;
+
+        case CMD_BLOCK_OL_ITEM:
+            naive_ordered_list(doc, c->snap_pos);
+            break;
+
+        case CMD_BLOCK_UL_ITEM:
+            naive_unordered_list(doc, c->snap_pos);
+            break;
+
+        case CMD_BLOCK_HRULE:
+            naive_horizontal_rule(doc, c->snap_pos);
+            break;
+
+        case CMD_INLINE_BOLD:
+            naive_bold(doc, c->snap_pos, c->end_pos);
+            break;
+
+        case CMD_INLINE_ITALIC:
+            naive_italic(doc, c->snap_pos, c->end_pos);
+            break;
+
+        case CMD_INLINE_CODE:
+            naive_code(doc, c->snap_pos, c->end_pos);
+            break;
+
+        case CMD_INLINE_LINK:
+            naive_link(doc, c->snap_pos, c->end_pos, c->content);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    // 3. Flatten and commit new snapshot
+    if (doc->snapshot)
+        free(doc->snapshot);
+    doc->snapshot = flatten_document(doc);
+    doc->snapshot_len = doc->num_characters;
+    
+
+    // 4. Clear metadata
+    doc->meta_log = clear_array(doc->meta_log);
+    doc->cmd_list = clear_array(doc->cmd_list);
+    doc->deleted_ranges = clear_array(doc->deleted_ranges);
+
+    return SUCCESS;
 }
