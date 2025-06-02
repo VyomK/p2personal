@@ -96,7 +96,7 @@ typedef struct
 void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset);
 range *clamp_to_valid(document *doc, size_t pos);
 size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos);
-
+char *flatten_document(document *doc);
 // === NAIVE DOC STRUCTURE HELPERS ===
 // === Document helpers ===
 Chunk* locate_chunk(document* doc, size_t pos, size_t* local_pos);

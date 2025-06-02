@@ -5,6 +5,10 @@
 #include <string.h>
 
 #include "document.h"  
+#include "array_list.h"
+#include "naive_ops.h"
+#include "memory.h"
+
 /**
  * The given file contains all the functions you will be required to complete. You are free to and encouraged to create
  * more helper functions to help assist you when creating the document. For the automated marking you can expect unit tests
