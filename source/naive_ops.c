@@ -1,6 +1,7 @@
 #include "markdown.h"
 #include "memory.h"
 #include "document.h"
+#include "naive_ops.h"
 #include <stdbool.h>
 
 #define SUCCESS 0
@@ -12,7 +13,6 @@
 #include <stdio.h>
 #include <string.h>
 
-int naive_insert_raw(document *doc, size_t working_pos, size_t snapshot_pos, const char *content);
 
 // === Edit Commands ===
 int naive_insert(document *doc, size_t pos, const char *content)

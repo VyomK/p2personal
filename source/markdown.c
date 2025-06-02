@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "document.h"
 #include "array_list.h"
+#include <string.h>
 #include <stdbool.h>
 
 #define SUCCESS 0
@@ -76,7 +77,7 @@ int markdown_delete(document *doc,
 
     if (!doc)
         return INVALID_CURSOR_POS;
-    if (pos > doc->snapshot_len || pos < 0)
+    if (pos > doc->snapshot_len)
         return INVALID_CURSOR_POS;
 
     if (pos + len > doc->snapshot_len)
@@ -113,6 +114,7 @@ int markdown_delete(document *doc,
 int markdown_newline(document *doc, uint64_t version, size_t pos)
 {
 
+    (void)version;
     if (!doc || pos > doc->snapshot_len)
         return INVALID_CURSOR_POS;
 
@@ -142,6 +144,7 @@ int markdown_heading(document *doc, uint64_t version, size_t level, size_t pos)
 
 int markdown_bold(document *doc, uint64_t version, size_t start, size_t end)
 {
+    (void)version;
     if (!doc || start >= end || end > doc->snapshot_len)
     {
         return INVALID_CURSOR_POS;
@@ -164,6 +167,7 @@ int markdown_bold(document *doc, uint64_t version, size_t start, size_t end)
 
 int markdown_italic(document *doc, uint64_t version, size_t start, size_t end)
 {
+    (void)version;
     if (!doc || start >= end || end > doc->snapshot_len)
     {
         return INVALID_CURSOR_POS;
@@ -186,6 +190,7 @@ int markdown_italic(document *doc, uint64_t version, size_t start, size_t end)
 
 int markdown_blockquote(document *doc, uint64_t version, size_t pos)
 {
+    (void)version;
     if (!doc || pos > doc->snapshot_len)
         return INVALID_CURSOR_POS;
 
@@ -229,6 +234,7 @@ int markdown_unordered_list(document *doc, uint64_t version, size_t pos)
 
 int markdown_code(document *doc, uint64_t version, size_t start, size_t end)
 {
+    (void)version;
     if (!doc || start >= end || end > doc->snapshot_len)
     {
         return INVALID_CURSOR_POS;
@@ -252,6 +258,7 @@ int markdown_code(document *doc, uint64_t version, size_t start, size_t end)
 
 int markdown_horizontal_rule(document *doc, uint64_t version, size_t pos)
 {
+    (void)version;
     if (!doc || pos > doc->snapshot_len)
         return INVALID_CURSOR_POS;
 
@@ -265,6 +272,7 @@ int markdown_horizontal_rule(document *doc, uint64_t version, size_t pos)
 
 int markdown_link(document *doc, uint64_t version, size_t start, size_t end, const char *url)
 {
+    (void)version;
     if (!doc || start >= end || end > doc->snapshot_len)
     {
         return INVALID_CURSOR_POS;
@@ -315,7 +323,7 @@ char *markdown_flatten(const document *doc)
 void markdown_increment_version(document *doc)
 {
     if (!doc)
-        return INVALID_CURSOR_POS;
+        return;
 
     // 1. Apply all deletions
     for (size_t i = 0; i < doc->deleted_ranges->size; ++i)
@@ -392,5 +400,5 @@ void markdown_increment_version(document *doc)
     doc->cmd_list = clear_array(doc->cmd_list);
     doc->deleted_ranges = clear_array(doc->deleted_ranges);
 
-    return SUCCESS;
+    return;
 }
