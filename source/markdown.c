@@ -21,9 +21,9 @@ document *markdown_init(void)
     doc->snapshot = NULL;
     doc->snapshot_len = 0;
 
-    doc->meta_log = create_array(8);
-    doc->cmd_list = create_array(8);
-    doc->deleted_ranges = create_array(8);
+    doc->meta_log = create_array(64);
+    doc->cmd_list = create_array(64);
+    doc->deleted_ranges = create_array(64);
 
     return doc;
 }

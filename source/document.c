@@ -5,67 +5,74 @@
 
 // === NAIVE OPS HELPERS ===
 
-void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset) {
+void update_meta_log(array_list *meta_positions, size_t snapshot_pos, int offset)
+{
     meta_pos *m = Calloc(1, sizeof(meta_pos));
     m->snapshot_pos = snapshot_pos;
     m->offset = offset;
     append_to(meta_positions, m);
 }
 
-range *clamp_to_valid(document *doc, size_t pos) {
-    if (!doc || pos > doc->snapshot_len) {
+range *clamp_to_valid(document *doc, size_t pos)
+{
+    if (!doc || pos > doc->snapshot_len)
+    {
         return NULL;
     }
 
-    for (size_t i = 0; i < doc->deleted_ranges->size; ++i) {
+    for (size_t i = 0; i < doc->deleted_ranges->size; ++i)
+    {
         range *r = (range *)get_from(doc->deleted_ranges, i);
-        if (pos >= r->start && pos < r->end) {
-            return r; 
+        if (pos >= r->start && pos < r->end)
+        {
+            return r;
         }
     }
 
-    return NULL; 
+    return NULL;
 }
 
-size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos) {
+size_t map_snapshot_to_working(array_list *meta_log, size_t clamped_snapshot_pos)
+{
     long offset = 0;
 
-    for (size_t i = 0; i < meta_log->size; ++i) {
+    for (size_t i = 0; i < meta_log->size; ++i)
+    {
         meta_pos *m = (meta_pos *)get_from(meta_log, i);
 
-        if (m->snapshot_pos < clamped_snapshot_pos) {
+        if (m->snapshot_pos < clamped_snapshot_pos)
+        {
             offset += m->offset;
         }
     }
 
-    long result = (long) clamped_snapshot_pos + offset;
+    long result = (long)clamped_snapshot_pos + offset;
     return (result < 0) ? 0 : (size_t)result;
 }
-
 
 // === NAIVE DOC-STRUCTURE HELPERS ===
 // === Document helpers ===
 
-char *flatten_document(document *doc) {
+char *flatten_document(document *doc)
+{
     if (!doc || !doc->head)
-        return Calloc(1,sizeof(char));  
+        return Calloc(1, sizeof(char));
 
-    
     size_t total = doc->num_characters;
     char *buf = Calloc(total + 1, sizeof(char)); // +1 for '\0'
     char *p = buf;
 
     Chunk *curr = doc->head;
-    while (curr) {
+    while (curr)
+    {
         memcpy(p, curr->text, curr->len);
         p += curr->len;
         curr = curr->next;
     }
 
-    *p = '\0'; 
+    *p = '\0';
     return buf;
 }
-
 
 Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
 {
@@ -90,22 +97,20 @@ Chunk *locate_chunk(document *doc, size_t pos, size_t *local_pos)
     return curr;
 }
 
-
-
-
 Chunk *ensure_line_start(document *doc, size_t *pos_out, size_t *local_pos_out, size_t snapshot_pos)
 {
-    
+
     size_t local;
     Chunk *curr = locate_chunk(doc, *pos_out, &local);
 
     // If we're in the middle of a line, split it:
-    if (local > 0) {
+    if (local > 0)
+    {
         // Inserts a '\n' at pos and creates a new chunk for the rest
         naive_newline_raw(doc, *pos_out, snapshot_pos);
-        (*pos_out) += 1;           // move past the inserted newline
-        curr = curr->next;         // now the first chunk of the new line
-        local = 0;                 
+        (*pos_out) += 1;   // move past the inserted newline
+        curr = curr->next; // now the first chunk of the new line
+        local = 0;
     }
 
     *local_pos_out = local;
@@ -146,11 +151,26 @@ size_t calculate_cap(size_t content_size)
 
 void chunk_ensure_cap(Chunk *curr, size_t extra_content)
 {
+    if (!curr)
+        return;
+
     if (curr->len + extra_content + 1 <= curr->cap)
         return;
 
     size_t new_cap = calculate_cap(curr->len + extra_content + 1);
-    curr->text = Realloc(curr->text, new_cap);
+
+    if (!curr->text)
+    {
+        curr->text = Calloc(new_cap, sizeof(char));
+    }
+    else
+    {
+        char *new_text = Realloc(curr->text, new_cap);
+        if (!new_text)
+            return; 
+        curr->text = new_text;
+    }
+
     curr->cap = new_cap;
 }
 
@@ -169,10 +189,11 @@ void chunk_insert(Chunk *curr, size_t local_pos, const char *content, size_t con
 
 int prev_ol_index(Chunk *c)
 {
-    if (c && c->previous && c->previous->type == ORDERED_LIST_ITEM){
+    if (c && c->previous && c->previous->type == ORDERED_LIST_ITEM)
+    {
         return c->previous->index_OL;
     }
-        
+
     return 0;
 }
 
