@@ -165,7 +165,7 @@ void chunk_ensure_cap(Chunk *curr, size_t extra_content)
     }
     else
     {
-        char *new_text = Realloc(curr->text, new_cap);
+        char *new_text = realloc(curr->text, new_cap);
         if (!new_text)
             return; 
         curr->text = new_text;
