@@ -9,14 +9,11 @@
 #include "naive_ops.h"
 #include "memory.h"
 
-/**
- * The given file contains all the functions you will be required to complete. You are free to and encouraged to create
- * more helper functions to help assist you when creating the document. For the automated marking you can expect unit tests
- * for the following tests, verifying if the document functionalities are correctly implemented. All the commands are explained 
- * in detail in the assignment spec.
- */
+#define SUCCESS 0
+#define INVALID_CURSOR_POS -1
+#define DELETED_POSITION -2
 
-// Return -1 if the cursor position is invalid
+
 
 
 

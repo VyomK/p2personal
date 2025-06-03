@@ -8,7 +8,6 @@
 #define SUCCESS 0
 #define INVALID_CURSOR_POS -1
 #define DELETED_POSITION -2
-#define OUTDATED_VERSION -3 /*IGNORE: COMP9017*/
 
 // === Init and Free ===
 document *markdown_init(void)
@@ -302,16 +301,9 @@ int markdown_link(document *doc, uint64_t version, size_t start, size_t end, con
 void markdown_print(const document *doc, FILE *stream)
 {
     if (!doc || !stream)
-    {
         return;
-    }
 
-    Chunk *curr = doc->head;
-    while (curr)
-    {
-        fwrite(curr->text, sizeof(char), curr->len, stream);
-        curr = curr->next;
-    }
+    fwrite(doc->snapshot, sizeof(char), doc->snapshot_len, stream);
 }
 
 char *markdown_flatten(const document *doc)

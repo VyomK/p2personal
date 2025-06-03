@@ -6,9 +6,9 @@
 
 
 typedef struct dynamic_array {
-    void **data;       // Pointer to array of elements
-    size_t size;       // Number of elements currently in the array
-    size_t capacity;   // Allocated capacity
+    void **data;       
+    size_t size;       
+    size_t capacity;   
 } array_list;
 
 
