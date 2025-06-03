@@ -122,7 +122,6 @@ int markdown_newline(document *doc, uint64_t version, size_t pos)
     c->snap_pos = pos;
 
     append_to(doc->cmd_list, c);
-    printf("[debug] cmd_list size after clear: %zu\n", doc->cmd_list->size);
     return SUCCESS;
 }
 

@@ -1,6 +1,6 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -g -Ilibs
+CFLAGS = -Wall -Wextra -std=c11 -g -Ilibs -D_POSIX_C_SOURCE=200809L
 LDFLAGS = -pthread
 LD = ld
 
@@ -10,10 +10,11 @@ OBJS_COMMON = \
     source/document.o \
     source/memory.o \
     source/array_list.o \
-    source/naive_ops.o
+    source/naive_ops.o \
+	source/ipc_helpers_common.o
 
-OBJS_SERVER = source/server.o $(OBJS_COMMON)
-OBJS_CLIENT = source/client.o $(OBJS_COMMON)
+OBJS_SERVER = source/server.o source/ipc_server_helpers.o $(OBJS_COMMON)
+OBJS_CLIENT = source/client.o source/ipc_client_helpers.o $(OBJS_COMMON)
 
 # Test runner setup
 TEST_SRC = tests/main.c tests/tests_refactored.c

@@ -64,7 +64,8 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        usleep(time_interval_ms * 1000);
+        sleep_ms(time_interval_ms);
+        handle_server_stdin();
 
         pthread_mutex_lock(&cmd_list_mutex);
         size_t cmd_count = global_cmd_list->size;
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
 
             pthread_mutex_lock(&doc_mutex);
             pthread_mutex_lock(&cmd_list_mutex);
-            for (int i = 0; i < global_cmd_list->size; i++)
+            for (size_t i = 0; i < global_cmd_list->size; i++)
             {
                 cmd_ipc *c = (cmd_ipc *)get_from(global_cmd_list, i);
                 int status = process_raw_command(global_doc, c);
@@ -113,7 +114,7 @@ int main(int argc, char *argv[])
 
             markdown_increment_version(global_doc);
 
-            for (int i = 0; i < global_cmd_list->size; i++)
+            for (size_t i = 0; i < global_cmd_list->size; i++)
             {
                 free_cmd_ipc(get_from(global_cmd_list, i));
             }
@@ -143,6 +144,8 @@ int main(int argc, char *argv[])
 
 void handle_sig(int sig, siginfo_t *info, void *context)
 {
+    (void) sig;
+    (void) context;
     pid_t client_pid = info->si_pid;
     pthread_t tid;
     int *arg = Calloc(1, sizeof(int));
@@ -192,7 +195,8 @@ void *client_thread(void *arg)
     dprintf(fd_s2c, "%llu\n", (unsigned long long)global_version);
     dprintf(fd_s2c, "%zu\n", global_doc->snapshot_len);
     write(fd_s2c, global_doc->snapshot, global_doc->snapshot_len);
-    pthread_mutex_unlock(&doc_mutex);
+    pthread_mutex_unlock(&doc_mutex); 
+   
 
     client_info *cinfo = Calloc(1, sizeof(client_info));
     cinfo->pid = client_pid;
@@ -221,6 +225,7 @@ void *client_thread(void *arg)
         cmd->role = strdup(cinfo->permission);
         cmd->raw_command = line;
         gettimeofday(&cmd->timestamp, NULL);
+        fprintf(stderr, "[server] Received command: '%s'\n", line);
 
         insert_sorted_cmd(cmd);
     }

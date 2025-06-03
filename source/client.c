@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-
+#define BUILD_CLIENT
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -196,6 +196,7 @@ void client_handshake(pid_t server_pid, const char *username)
 
 void *pipe_listener_thread(void *arg)
 {
+    (void) arg;
     char buffer[BUF_SIZE];
     size_t buf_len = 0;
 
