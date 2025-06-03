@@ -49,10 +49,10 @@ typedef struct client_info {
 
 // === Shared Helper ===
 char *read_line_dynamic(int fd);
+int process_raw_command(document *doc, cmd_ipc *cmd);
 
 // === Server Helpers ===
 void handle_server_stdin(void);
-int process_raw_command(document *doc, cmd_ipc *cmd);
 void insert_sorted_cmd(cmd_ipc *cmd);
 void free_cmd_ipc(void *ptr);
 void free_server_resources(void);
@@ -62,9 +62,13 @@ void append_to_log_buffer(const char *data, size_t len);
 void append_to_server_log(void);
 void send_broadcast_to_all_clients(void);
 
+// === Authenticate Helpers ===
 char *trim(char *str);
 void get_user_role(char **username_out, char **role_out, int fd);
 
 // === Client Helpers ===
+void markdown_parse_string(document *doc, const char *text);
+void infer_chunk_type(const char *line, size_t len, chunk_type *type_out, int *index_OL_out);
+void apply_broadcast(const char *msg);
 
 #endif
