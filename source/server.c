@@ -10,8 +10,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include "markdown.h"
 #include "document.h"
+#include "markdown.h"
 #include "array_list.h"
 #include "ipc_helpers.h"
 
