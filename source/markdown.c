@@ -60,7 +60,7 @@ int markdown_insert(document *doc, uint64_t version, size_t pos, const char *con
     cmd *c = Calloc(1, sizeof(cmd));
     c->type = CMD_INSERT;
     c->snap_pos = pos;
-    c->content = content;
+    c->content = strdup(content);
 
     append_to(doc->cmd_list, c);
 
@@ -289,7 +289,7 @@ int markdown_link(document *doc, uint64_t version, size_t start, size_t end, con
     c->type = CMD_INLINE_LINK;
     c->snap_pos = start;
     c->end_pos = end;
-    c->content = url;
+    c->content = strdup(url);
 
     append_to(doc->cmd_list, c);
 

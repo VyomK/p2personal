@@ -19,6 +19,7 @@
 document *local_doc = NULL;
 char *local_log = NULL;
 char *permission = NULL;
+uint64_t last_logged_version = 0;
 
 pthread_mutex_t local_doc_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t local_log_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -196,7 +197,7 @@ void client_handshake(pid_t server_pid, const char *username)
 
 void *pipe_listener_thread(void *arg)
 {
-    (void) arg;
+    (void)arg;
     char buffer[BUF_SIZE];
     size_t buf_len = 0;
 
@@ -224,15 +225,24 @@ void *pipe_listener_thread(void *arg)
         memcpy(broadcast, buffer, full_len);
         broadcast[full_len] = '\0';
 
-        // Append to local_log
-        pthread_mutex_lock(&local_log_mutex);
-        size_t old_log_len = local_log ? strlen(local_log) : 0;
-        local_log = realloc(local_log, old_log_len + full_len + 1);
-        memcpy(local_log + old_log_len, broadcast, full_len);
-        local_log[old_log_len + full_len] = '\0';
-        pthread_mutex_unlock(&local_log_mutex);
+        // Get version number from start of broadcast
+        uint64_t version = 0;
+        sscanf(broadcast, "VERSION %lu", &version);
 
-       pthread_mutex_lock(&local_doc_mutex);
+        // Only append to log if version is new
+        if (version > last_logged_version)
+        {
+            pthread_mutex_lock(&local_log_mutex);
+            size_t old_log_len = local_log ? strlen(local_log) : 0;
+            local_log = realloc(local_log, old_log_len + full_len + 1);
+            memcpy(local_log + old_log_len, broadcast, full_len);
+            local_log[old_log_len + full_len] = '\0';
+            pthread_mutex_unlock(&local_log_mutex);
+
+            last_logged_version = version;
+        }
+
+        pthread_mutex_lock(&local_doc_mutex);
         apply_broadcast(broadcast);
         markdown_increment_version(local_doc);
         pthread_mutex_unlock(&local_doc_mutex);

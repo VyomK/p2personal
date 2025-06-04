@@ -34,7 +34,7 @@ char *current_log_entry = NULL;
 size_t current_log_len = 0;
 size_t current_log_cap = 0;
 
-uint64_t global_version = 0;
+uint64_t global_version = 1;
 unsigned long time_interval_ms;
 
 void handle_sig(int sig, siginfo_t *info, void *context);
