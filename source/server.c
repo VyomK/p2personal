@@ -10,9 +10,9 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
+#include "array_list.h"
 #include "document.h"
 #include "markdown.h"
-#include "array_list.h"
 #include "ipc_helpers.h"
 
 #define MAX_FIFO_NAME 64

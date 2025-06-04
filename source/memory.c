@@ -16,14 +16,4 @@ void *Calloc(size_t nmemb, size_t size)
     return ptr;
 }
 
-void *Realloc(void *ptr, size_t size)
-{
-    void *new_ptr = realloc(ptr, size);
-    if (!new_ptr)
-    {
-        fprintf(stderr, "Realloc failed (%zu bytes) [%s:%d]\n", size, __FILE__, __LINE__);
-        
-    }
-    return new_ptr;
-}
 

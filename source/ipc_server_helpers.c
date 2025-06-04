@@ -1,9 +1,12 @@
 #define _POSIX_C_SOURCE 200809L
 
-
+#include <signal.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <time.h>
@@ -24,6 +27,15 @@ void sleep_ms(unsigned long milliseconds) {
 
 
 void handle_server_stdin(void) {
+    fd_set set;
+    struct timeval timeout = {0, 0};
+    FD_ZERO(&set);
+    FD_SET(STDIN_FILENO, &set);
+
+    if (select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout) <= 0) {
+        return; // no input available
+    }
+    
     char *line = NULL;
     size_t len = 0;
 
