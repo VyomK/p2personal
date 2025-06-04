@@ -35,7 +35,7 @@ void handle_server_stdin(void)
 
     if (select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout) <= 0)
     {
-        return; // no input available
+        return; 
     }
 
     char *line = NULL;

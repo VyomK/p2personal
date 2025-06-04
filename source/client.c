@@ -48,7 +48,6 @@ int main(int argc, char *argv[])
 
     pthread_t listener_thread;
     pthread_create(&listener_thread, NULL, pipe_listener_thread, NULL);
-    pthread_detach(listener_thread);
 
     char line[512];
     while (fgets(line, sizeof(line), stdin))
@@ -78,17 +77,17 @@ int main(int argc, char *argv[])
             break;
         }
 
-        // Send to server
         if (write(fd_c2s, line, strlen(line)) < 0)
         {
-            perror("Failed to send command to server");
             break;
         }
     }
 
+    pthread_join(listener_thread, NULL);  // wait for clean shutdown
     cleanup_client();
     return 0;
 }
+
 
 void client_handshake(pid_t server_pid, const char *username)
 {
@@ -206,8 +205,7 @@ void *pipe_listener_thread(void *arg)
         ssize_t n = read(fd_s2c, buffer + buf_len, BUF_SIZE - buf_len);
         if (n <= 0)
         {
-            fprintf(stderr, "Server connection lost.\n");
-            exit(1);
+            break;
         }
 
         buf_len += n;
