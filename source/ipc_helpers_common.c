@@ -56,7 +56,7 @@ int process_raw_command(document *doc, cmd_ipc *cmd)
         return INTERNAL_ERROR;
     }
 
-    fprintf(stderr, "[server: process_raw] Received command: '%s'\n", cmd->raw_command);
+    
 
     if (strcmp(type, "INSERT") == 0) {
         char *pos_str = strtok_r(NULL, " ", &saveptr);

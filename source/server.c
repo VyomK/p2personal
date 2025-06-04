@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -71,18 +72,22 @@ int main(int argc, char *argv[])
         size_t cmd_count = global_cmd_list->size;
         pthread_mutex_unlock(&cmd_list_mutex);
 
+        bool success_occured = false;
+        uint64_t broadcast_version = global_version;
+
         if (cmd_count != 0)
         {
             reset_log_buffer();
-            current_log_len = snprintf(current_log_entry, current_log_cap,
-                                       "VERSION %llu\n", (unsigned long long)global_version);
-
+            
             pthread_mutex_lock(&doc_mutex);
             pthread_mutex_lock(&cmd_list_mutex);
             for (size_t i = 0; i < global_cmd_list->size; i++)
             {
                 cmd_ipc *c = (cmd_ipc *)get_from(global_cmd_list, i);
                 int status = process_raw_command(global_doc, c);
+
+                if (status == SUCCESS)
+                    success_occured = true;
 
                 const char *result_str = NULL;
 
@@ -92,13 +97,13 @@ int main(int argc, char *argv[])
                     result_str = "SUCCESS";
                     break;
                 case INVALID_CURSOR_POS:
-                    result_str = "REJECT INVALID_POSITION";
+                    result_str = "Reject INVALID_POSITION";
                     break;
                 case DELETED_POSITION:
-                    result_str = "REJECT DELETED_POSITION";
+                    result_str = "Reject DELETED_POSITION";
                     break;
                 case REJECT_UNAUTHORISED:
-                    result_str = "REJECT UNAUTHORISED";
+                    result_str = "Reject UNAUTHORISED";
                     break;
                 default:
                     result_str = "REJECT UNKNOWN_ERROR";
@@ -113,6 +118,10 @@ int main(int argc, char *argv[])
             }
 
             markdown_increment_version(global_doc);
+            if (success_occured) {
+                global_version++;
+                broadcast_version = global_version;
+            }
 
             for (size_t i = 0; i < global_cmd_list->size; i++)
             {
@@ -123,10 +132,18 @@ int main(int argc, char *argv[])
             pthread_mutex_unlock(&cmd_list_mutex);
             pthread_mutex_unlock(&doc_mutex);
 
+            char version_line[64];
+            int version_len = snprintf(version_line, sizeof(version_line),
+                                       "VERSION %llu\n", (unsigned long long)broadcast_version);
+
+            memmove(current_log_entry + version_len, current_log_entry, current_log_len);
+            memcpy(current_log_entry, version_line, version_len);
+            current_log_len += version_len;
+
             append_to_log_buffer("END\n", 4);
 
             append_to_server_log();
-            global_version++;
+            
         }
         else
         {
@@ -134,6 +151,7 @@ int main(int argc, char *argv[])
             reset_log_buffer();
             current_log_len = snprintf(current_log_entry, current_log_cap,
                                        "VERSION %llu\nEND\n", (unsigned long long)global_version);
+            append_to_server_log(); 
         }
 
         send_broadcast_to_all_clients();
@@ -144,8 +162,8 @@ int main(int argc, char *argv[])
 
 void handle_sig(int sig, siginfo_t *info, void *context)
 {
-    (void) sig;
-    (void) context;
+    (void)sig;
+    (void)context;
     pid_t client_pid = info->si_pid;
     pthread_t tid;
     int *arg = Calloc(1, sizeof(int));
@@ -195,8 +213,7 @@ void *client_thread(void *arg)
     dprintf(fd_s2c, "%llu\n", (unsigned long long)global_version);
     dprintf(fd_s2c, "%zu\n", global_doc->snapshot_len);
     write(fd_s2c, global_doc->snapshot, global_doc->snapshot_len);
-    pthread_mutex_unlock(&doc_mutex); 
-   
+    pthread_mutex_unlock(&doc_mutex);
 
     client_info *cinfo = Calloc(1, sizeof(client_info));
     cinfo->pid = client_pid;
@@ -225,7 +242,7 @@ void *client_thread(void *arg)
         cmd->role = strdup(cinfo->permission);
         cmd->raw_command = line;
         gettimeofday(&cmd->timestamp, NULL);
-        fprintf(stderr, "[server] Received command: '%s'\n", line);
+        
 
         insert_sorted_cmd(cmd);
     }

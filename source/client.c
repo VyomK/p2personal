@@ -229,9 +229,8 @@ void *pipe_listener_thread(void *arg)
         uint64_t version = 0;
         sscanf(broadcast, "VERSION %lu", &version);
 
-        // Only append to log if version is new
-        if (version > last_logged_version)
-        {
+       
+        
             pthread_mutex_lock(&local_log_mutex);
             size_t old_log_len = local_log ? strlen(local_log) : 0;
             local_log = realloc(local_log, old_log_len + full_len + 1);
@@ -240,7 +239,7 @@ void *pipe_listener_thread(void *arg)
             pthread_mutex_unlock(&local_log_mutex);
 
             last_logged_version = version;
-        }
+        
 
         pthread_mutex_lock(&local_doc_mutex);
         apply_broadcast(broadcast);
