@@ -186,11 +186,12 @@ void *client_thread(void *arg)
     mkfifo(fifo_c2s, 0666);
     mkfifo(fifo_s2c, 0666);
 
-    sigqueue(client_pid, SIGRTMIN + 1, (union sigval){.sival_int = 0});
-
+    
     int fd_c2s = open(fifo_c2s, O_RDONLY);
     int fd_s2c = open(fifo_s2c, O_WRONLY);
 
+    sigqueue(client_pid, SIGRTMIN + 1, (union sigval){.sival_int = 0});
+    
     char *username = NULL;
     char *role = NULL;
     get_user_role(&username, &role, fd_c2s);
@@ -231,7 +232,7 @@ void *client_thread(void *arg)
         if (!line)
             break;
 
-        if (strcmp(line, "DISCONNECT") == 0)
+        if (strcmp(trim(line), "DISCONNECT") == 0)
         {
             free(line);
             break;
